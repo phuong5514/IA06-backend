@@ -18,7 +18,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post("register")
-  async registerUser(@Body() body: { email: string; password: string }): Promise<string> {
+  async registerUser(@Body() body: { email: string; password: string }): Promise<{ success: boolean; message: string }> {
     return this.userService.registerUser(body.email, body.password);
   }
 

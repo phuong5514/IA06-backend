@@ -20,7 +20,7 @@ export class UserService {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
-  async registerUser(email: string, password: string): Promise<string> {
+  async registerUser(email: string, password: string): Promise<{ success: boolean; message: string }> {
     try {
       // Check if email already exists
       const existingUsers = await this.db
@@ -29,7 +29,7 @@ export class UserService {
         .where(eq(usersTable.email, email));
       
       if (existingUsers.length > 0) {
-        return `user ${email} already exists`;
+        return { success: false, message: `user ${email} already exists` };
       }
 
       // Hash the password
@@ -41,20 +41,11 @@ export class UserService {
       }
 
       await this.db.insert(usersTable).values(newUser);
-      return `user ${email} registered successfully`;
+      return { success: true, message: `user ${email} registered successfully` };
     } catch(error) {
-      return `user ${email} failed to registered, reason: ${error}`;
+      return { success: false, message: `user ${email} failed to registered, reason: ${error}` };
     }
 
-  }
-
-  async getUserPassword(email: string): Promise<string | null> {
-    const users = await this.db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, email));
-    
-    return users.length > 0 ? users[0].password : null;
   }
 
   async login(email: string, password: string): Promise<{ success: boolean; message: string }> {
