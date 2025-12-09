@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
 import { usersTable } from './db/schema';
+import { AuthService, TokenPair } from './auth/auth.service';
 import * as bcrypt from 'bcrypt';
   
 @Injectable()
@@ -16,7 +17,7 @@ export class AppService {
 export class UserService {
   private db;
 
-  constructor() {
+  constructor(private authService: AuthService) {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
@@ -48,7 +49,7 @@ export class UserService {
 
   }
 
-  async login(email: string, password: string): Promise<{ success: boolean; message: string }> {
+  async login(email: string, password: string, deviceInfo?: string, ip?: string): Promise<{ success: boolean; message: string; accessToken?: string; refreshToken?: string }> {
     try {
       const users = await this.db
         .select()
@@ -65,12 +66,59 @@ export class UserService {
       const isPasswordValid = await bcrypt.compare(password, user.password);
       
       if (isPasswordValid) {
-        return { success: true, message: 'Login successful' };
+        // Generate JWT tokens
+        const tokens = await this.authService.generateTokenPair(user.id, user.email, deviceInfo, ip);
+        
+        return { 
+          success: true, 
+          message: 'Login successful',
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken
+        };
       } else {
         return { success: false, message: 'Invalid password' };
       }
     } catch (error) {
       return { success: false, message: `Login failed: ${error}` };
+    }
+  }
+
+  async refreshToken(refreshToken: string): Promise<{ success: boolean; message: string; accessToken?: string; refreshToken?: string }> {
+    try {
+      const tokens = await this.authService.refreshAccessToken(refreshToken);
+      
+      if (!tokens) {
+        return { success: false, message: 'Invalid or expired refresh token' };
+      }
+
+      return {
+        success: true,
+        message: 'Token refreshed successfully',
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken
+      };
+    } catch (error) {
+      return { success: false, message: `Token refresh failed: ${error}` };
+    }
+  }
+
+  async logout(refreshToken: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const payload = await this.authService.validateRefreshToken(refreshToken);
+      
+      if (!payload || !payload.jti) {
+        return { success: false, message: 'Invalid refresh token' };
+      }
+
+      const revoked = await this.authService.revokeRefreshToken(payload.jti);
+      
+      if (revoked) {
+        return { success: true, message: 'Logged out successfully' };
+      } else {
+        return { success: false, message: 'Failed to revoke token' };
+      }
+    } catch (error) {
+      return { success: false, message: `Logout failed: ${error}` };
     }
   }
 
