@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and } from 'drizzle-orm';
 import { refreshTokensTable } from '../db/schema';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import 'dotenv/config';
 
 export interface JwtPayload {
@@ -27,7 +27,7 @@ export class AuthService {
   }
 
   async generateTokenPair(userId: number, email: string, deviceInfo?: string, ip?: string): Promise<TokenPair> {
-    const jti = uuidv4();
+    const jti = randomUUID();
 
     // Generate access token (short-lived: 15 minutes)
     const accessTokenPayload: JwtPayload = {

@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Ip, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Body, Request, UseGuards } from '@nestjs/common';
 import { AppService, UserService } from './app.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { AuthService } from './auth/auth.service';
 
 @Controller()
 export class AppController {
@@ -10,21 +11,14 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
-
-  // Protected route example
-  @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  getProfile(@Request() req) {
-    return {
-      message: 'This is a protected route',
-      user: req.user,
-    };
-  }
 }
 
 @Controller("user") 
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly authService: AuthService
+  ) {}
 
   @Post("register")
   async registerUser(@Body() body: { email: string; password: string }): Promise<{ success: boolean; message: string }> {
@@ -34,29 +28,55 @@ export class UserController {
   @Post("login")
   async login(
     @Body() body: { email: string; password: string },
-    @Ip() ip: string,
-    @Headers('user-agent') userAgent: string
+    @Request() req
   ): Promise<{ success: boolean; message: string; accessToken?: string; refreshToken?: string }> {
-    return this.userService.login(body.email, body.password, userAgent, ip);
+    const deviceInfo = req.headers['user-agent'];
+    const ip = req.ip || req.connection.remoteAddress;
+    return this.userService.login(body.email, body.password, deviceInfo, ip);
   }
 
   @Post("refresh")
-  async refreshToken(@Body() body: { refreshToken: string }): Promise<{ success: boolean; message: string; accessToken?: string; refreshToken?: string }> {
-    return this.userService.refreshToken(body.refreshToken);
+  async refresh(@Body() body: { refreshToken: string }) {
+    const tokens = await this.authService.refreshAccessToken(body.refreshToken);
+    
+    if (!tokens) {
+      return { success: false, message: 'Invalid or expired refresh token' };
+    }
+    
+    return {
+      success: true,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post("logout")
-  async logout(@Body() body: { refreshToken: string }): Promise<{ success: boolean; message: string }> {
-    return this.userService.logout(body.refreshToken);
+  async logout(@Request() req, @Body() body: { refreshToken?: string }) {
+    try {
+      // If refresh token provided, revoke it
+      if (body.refreshToken) {
+        const payload = await this.authService.validateRefreshToken(body.refreshToken);
+        if (payload && payload.jti) {
+          await this.authService.revokeRefreshToken(payload.jti);
+        }
+      }
+      
+      return { success: true, message: 'Logged out successfully' };
+    } catch (error) {
+      return { success: false, message: 'Logout failed' };
+    }
   }
 
-  // Protected route example
   @UseGuards(JwtAuthGuard)
   @Get("me")
-  async getCurrentUser(@Request() req): Promise<{ email: string; userId: number }> {
+  async getProfile(@Request() req) {
     return {
-      email: req.user.email,
-      userId: req.user.userId
+      success: true,
+      user: {
+        id: req.user.userId,
+        email: req.user.email,
+      },
     };
   }
 }
