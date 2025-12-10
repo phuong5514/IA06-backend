@@ -49,7 +49,7 @@ export class UserService {
 
   }
 
-  async login(email: string, password: string, deviceInfo?: string, ip?: string): Promise<{ success: boolean; message: string; accessToken?: string; refreshToken?: string }> {
+  async login(email: string, password: string, deviceInfo?: string, ip?: string): Promise<{ success: boolean; message: string; accessToken?: string; refreshToken?: string; email?: string }> {
     try {
       const users = await this.db
         .select()
@@ -73,7 +73,8 @@ export class UserService {
           success: true, 
           message: 'Login successful',
           accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken
+          refreshToken: tokens.refreshToken,
+          email: user.email
         };
       } else {
         return { success: false, message: 'Invalid password' };
