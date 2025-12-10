@@ -38,11 +38,13 @@ export class UserController {
     
     // Set refresh token as httpOnly cookie
     if (result.success && result.refreshToken) {
+      const isProduction = process.env.NODE_ENV === 'production';
       res.cookie('refreshToken', result.refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: isProduction, // true in production
+        sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in production
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/',
       });
     }
     
@@ -66,16 +68,18 @@ export class UserController {
     
     if (!tokens) {
       // Clear invalid cookie
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', { path: '/' });
       return { success: false, message: 'Invalid or expired refresh token' };
     }
     
     // Update refresh token cookie
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
     });
     
     return {
@@ -106,7 +110,12 @@ export class UserController {
       }
       
       // Clear refresh token cookie
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', { 
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      });
       
       return { success: true, message: 'Logged out successfully' };
     } catch (error) {
