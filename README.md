@@ -1,98 +1,117 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Smart Restaurant Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS-based backend for the Smart Restaurant QR-based ordering system.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
 
-## Description
+- JWT Authentication with refresh tokens
+- Role-based access control (Super Admin, Admin, Waiter, Kitchen, Customer)
+- PostgreSQL database with Drizzle ORM
+- Redis for session storage
+- Email verification and password reset
+- QR code token validation
+- Menu management
+- Order processing
+- Payment integration (Stripe)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Prerequisites
 
-## Project setup
+- Node.js >= 20.0.0
+- PostgreSQL >= 14
+- Redis (for session storage)
+- SMTP server (for email)
+
+## Installation
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure the following variables:
+
+### Database
+- `DATABASE_URL`: PostgreSQL connection string (e.g., `postgresql://user:password@localhost:5432/smart_restaurant`)
+
+### Authentication
+- `JWT_ACCESS_SECRET`: Secret key for access tokens (use strong random string in production)
+- `JWT_REFRESH_SECRET`: Secret key for refresh tokens (use strong random string in production)
+- `JWT_PRIVATE_KEY`: RSA private key for RS256 (optional, falls back to HS256)
+- `JWT_PUBLIC_KEY`: RSA public key for RS256 (optional)
+
+### Redis
+- `REDIS_URL`: Redis connection string (e.g., `redis://localhost:6379`)
+
+### Email
+- `SMTP_HOST`: SMTP server hostname
+- `SMTP_PORT`: SMTP server port (usually 587 for TLS)
+- `SMTP_USER`: SMTP username
+- `SMTP_PASS`: SMTP password
+
+### Super Admin Bootstrap
+- `SUPER_ADMIN_EMAIL`: Email for the super admin account
+- `SUPER_ADMIN_PASSWORD`: Password for the super admin account
+
+**Security Note**: Store sensitive credentials (passwords, secrets) in a secure vault like AWS Secrets Manager or 1Password. Never commit `.env` files to version control.
+
+## Database Setup
+
+1. Create a PostgreSQL database
+2. Run migrations:
+```bash
+npm run db:push
+```
+
+## Bootstrap Super Admin
+
+The super admin account is required for initial system setup. Run the bootstrap script after setting up the database:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npx ts-node scripts/bootstrap-super-admin.ts
 ```
 
-## Run tests
+**Important**:
+- This script is idempotent - it will only create the super admin if one doesn't exist
+- In production (`NODE_ENV=production`), the script will refuse to run if a super admin already exists
+- The super admin credentials cannot be reset via the UI - document recovery procedures
+- Use strong, unique credentials for the super admin account
+
+## Running the Application
 
 ```bash
-# unit tests
-$ npm run test
+# Development
+npm run start:dev
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+# Production
+npm run build
+npm run start:prod
 ```
+
+## Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+## API Documentation
+
+The API follows the OpenAPI specification. View the documentation at `/docs` when running in development mode.
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+1. Ensure all environment variables are set
+2. Run database migrations
+3. Execute the bootstrap script (if needed)
+4. Build and start the application
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+MIT

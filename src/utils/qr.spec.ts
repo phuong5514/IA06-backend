@@ -62,7 +62,8 @@ describe('QR Token Utilities', () => {
       const validToken = signTableToken(tableId);
 
       // Tamper with the token by modifying a character
-      const tamperedToken = validToken.substring(0, validToken.length - 1) + 'X';
+      const tamperedToken =
+        validToken.substring(0, validToken.length - 1) + 'X';
 
       const result = verifyTableToken(tamperedToken);
 
@@ -187,7 +188,7 @@ describe('QR Token Utilities', () => {
 
     it('should not allow token reuse with different table ID', () => {
       const token = signTableToken(1);
-      
+
       // Try to decode and change table ID
       const decoded = Buffer.from(token, 'base64url').toString('utf8');
       const parts = decoded.split(':');
@@ -200,7 +201,7 @@ describe('QR Token Utilities', () => {
 
     it('should not allow extending token expiration', () => {
       const token = signTableToken(1, 60); // 1 minute
-      
+
       // Try to decode and extend expiration
       const decoded = Buffer.from(token, 'base64url').toString('utf8');
       const parts = decoded.split(':');

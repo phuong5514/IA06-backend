@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { tables } from '../db/schema';
@@ -23,7 +27,9 @@ export class TablesService {
 
     if (!verification.valid) {
       if (verification.expired) {
-        throw new BadRequestException('QR code has expired. Please request a new one.');
+        throw new BadRequestException(
+          'QR code has expired. Please request a new one.',
+        );
       }
       throw new BadRequestException('Invalid QR code.');
     }

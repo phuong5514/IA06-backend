@@ -1,12 +1,17 @@
-import { Injectable, ConflictException, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { db } from '../db';
-import { 
-  users, 
-  emailVerificationTokensTable, 
-  passwordResetTokensTable 
+import {
+  users,
+  emailVerificationTokensTable,
+  passwordResetTokensTable,
 } from '../db/schema';
 import { EmailService } from '../infrastructure/email.service';
 import { RegisterDto } from './dto/register.dto';
@@ -15,7 +20,9 @@ import { RegisterDto } from './dto/register.dto';
 export class RegistrationService {
   constructor(private readonly emailService: EmailService) {}
 
-  async register(registerDto: RegisterDto): Promise<{ message: string; userId: string }> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<{ message: string; userId: string }> {
     const { email, password, name, phone } = registerDto;
 
     // Check if user already exists
@@ -70,7 +77,8 @@ export class RegistrationService {
     }
 
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      message:
+        'Registration successful. Please check your email to verify your account.',
       userId: newUser.id,
     };
   }
@@ -100,7 +108,7 @@ export class RegistrationService {
     // Update user email_verified status
     await db
       .update(users)
-      .set({ 
+      .set({
         email_verified: true,
         updated_at: new Date().toISOString(),
       })
@@ -125,7 +133,9 @@ export class RegistrationService {
 
     if (!user) {
       // Don't reveal if user exists or not for security
-      return { message: 'If an account exists, a verification email will be sent.' };
+      return {
+        message: 'If an account exists, a verification email will be sent.',
+      };
     }
 
     // Check if already verified
@@ -176,7 +186,9 @@ export class RegistrationService {
 
     // Don't reveal if user exists or not for security
     if (!user) {
-      return { message: 'If an account exists, a password reset email will be sent.' };
+      return {
+        message: 'If an account exists, a password reset email will be sent.',
+      };
     }
 
     // Delete old unused tokens for this user
@@ -208,10 +220,15 @@ export class RegistrationService {
       console.error('Failed to send password reset email:', error);
     }
 
-    return { message: 'If an account exists, a password reset email will be sent.' };
+    return {
+      message: 'If an account exists, a password reset email will be sent.',
+    };
   }
 
-  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
     // Find the reset token
     const [resetRecord] = await db
       .select()
@@ -242,7 +259,7 @@ export class RegistrationService {
     // Update user password
     await db
       .update(users)
-      .set({ 
+      .set({
         password: passwordHash,
         updated_at: new Date().toISOString(),
         failed_login_attempts: 0,
@@ -261,7 +278,9 @@ export class RegistrationService {
 
   private validatePassword(password: string): void {
     if (password.length < 8) {
-      throw new BadRequestException('Password must be at least 8 characters long');
+      throw new BadRequestException(
+        'Password must be at least 8 characters long',
+      );
     }
 
     if (password.length > 128) {

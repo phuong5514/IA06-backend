@@ -37,11 +37,13 @@ async function bootstrap() {
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
+
       // Check if origin is allowed
-      if (allowedOrigins.some(allowed => origin.startsWith(allowed)) || 
-          origin.includes('vercel.app') || 
-          origin.includes('netlify.app')) {
+      if (
+        allowedOrigins.some((allowed) => origin.startsWith(allowed)) ||
+        origin.includes('vercel.app') ||
+        origin.includes('netlify.app')
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -57,6 +59,9 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  logger.log(`Application is running on: http://localhost:${port}`, 'Bootstrap');
+  logger.log(
+    `Application is running on: http://localhost:${port}`,
+    'Bootstrap',
+  );
 }
 bootstrap();

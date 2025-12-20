@@ -1,17 +1,22 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common'
-import { drizzle } from 'drizzle-orm/node-postgres'
-import { eq, and } from 'drizzle-orm'
-import * as bcrypt from 'bcrypt'
-import { users } from '../db/schema'
-import { CreateStaffDto, UpdateStaffDto } from './dto/create-staff.dto'
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { eq, and } from 'drizzle-orm';
+import * as bcrypt from 'bcrypt';
+import { users } from '../db/schema';
+import { CreateStaffDto, UpdateStaffDto } from './dto/create-staff.dto';
 
 @Injectable()
 export class UsersService {
-  private readonly BCRYPT_ROUNDS = 12
-  private db
+  private readonly BCRYPT_ROUNDS = 12;
+  private db;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL)
+    this.db = drizzle(process.env.DATABASE_URL);
   }
 
   async createStaff(createStaffDto: CreateStaffDto) {
@@ -20,19 +25,24 @@ export class UsersService {
       .select()
       .from(users)
       .where(eq(users.email, createStaffDto.email))
-      .limit(1)
+      .limit(1);
 
     if (existingUser.length > 0) {
-      throw new ConflictException('Email already exists')
+      throw new ConflictException('Email already exists');
     }
 
     // Validate role is staff role (not customer)
     if ((createStaffDto.role as string) === 'customer') {
-      throw new BadRequestException('Cannot create customer accounts via staff endpoint')
+      throw new BadRequestException(
+        'Cannot create customer accounts via staff endpoint',
+      );
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(createStaffDto.password, this.BCRYPT_ROUNDS)
+    const hashedPassword = await bcrypt.hash(
+      createStaffDto.password,
+      this.BCRYPT_ROUNDS,
+    );
 
     // Create user
     const [newUser] = await this.db
@@ -46,11 +56,11 @@ export class UsersService {
         is_active: true,
         email_verified: true, // Staff accounts are pre-verified
       })
-      .returning()
+      .returning();
 
     // Remove password from response
-    const { password, ...userWithoutPassword } = newUser
-    return userWithoutPassword
+    const { password, ...userWithoutPassword } = newUser;
+    return userWithoutPassword;
   }
 
   async listStaff(includeInactive = false) {
@@ -67,21 +77,21 @@ export class UsersService {
         created_at: users.created_at,
         last_login: users.last_login,
       })
-      .from(users)
+      .from(users);
 
     // Filter by staff roles
-    let conditions = []
-    
+    const conditions = [];
+
     if (!includeInactive) {
-      conditions.push(eq(users.is_active, true))
+      conditions.push(eq(users.is_active, true));
     }
 
     const staff = await query
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(users.created_at)
+      .orderBy(users.created_at);
 
     // Filter staff roles in application layer
-    return staff.filter(u => ['admin', 'waiter', 'kitchen'].includes(u.role))
+    return staff.filter((u) => ['admin', 'waiter', 'kitchen'].includes(u.role));
   }
 
   async deactivateStaff(userId: string, reason?: string) {
@@ -89,14 +99,16 @@ export class UsersService {
       .select()
       .from(users)
       .where(eq(users.id, userId))
-      .limit(1)
+      .limit(1);
 
     if (!user) {
-      throw new NotFoundException('User not found')
+      throw new NotFoundException('User not found');
     }
 
     if ((user.role as string) === 'customer') {
-      throw new BadRequestException('Cannot deactivate customer accounts via staff endpoint')
+      throw new BadRequestException(
+        'Cannot deactivate customer accounts via staff endpoint',
+      );
     }
 
     const [updated] = await this.db
@@ -106,10 +118,10 @@ export class UsersService {
         updated_at: new Date().toISOString(),
       })
       .where(eq(users.id, userId))
-      .returning()
+      .returning();
 
-    const { password, ...userWithoutPassword } = updated
-    return userWithoutPassword
+    const { password, ...userWithoutPassword } = updated;
+    return userWithoutPassword;
   }
 
   async activateStaff(userId: string) {
@@ -117,10 +129,10 @@ export class UsersService {
       .select()
       .from(users)
       .where(eq(users.id, userId))
-      .limit(1)
+      .limit(1);
 
     if (!user) {
-      throw new NotFoundException('User not found')
+      throw new NotFoundException('User not found');
     }
 
     const [updated] = await this.db
@@ -130,10 +142,10 @@ export class UsersService {
         updated_at: new Date().toISOString(),
       })
       .where(eq(users.id, userId))
-      .returning()
+      .returning();
 
-    const { password, ...userWithoutPassword } = updated
-    return userWithoutPassword
+    const { password, ...userWithoutPassword } = updated;
+    return userWithoutPassword;
   }
 
   async updateStaff(userId: string, updateStaffDto: UpdateStaffDto) {
@@ -141,10 +153,10 @@ export class UsersService {
       .select()
       .from(users)
       .where(eq(users.id, userId))
-      .limit(1)
+      .limit(1);
 
     if (!user) {
-      throw new NotFoundException('User not found')
+      throw new NotFoundException('User not found');
     }
 
     const [updated] = await this.db
@@ -154,9 +166,9 @@ export class UsersService {
         updated_at: new Date().toISOString(),
       })
       .where(eq(users.id, userId))
-      .returning()
+      .returning();
 
-    const { password, ...userWithoutPassword } = updated
-    return userWithoutPassword
+    const { password, ...userWithoutPassword } = updated;
+    return userWithoutPassword;
   }
 }

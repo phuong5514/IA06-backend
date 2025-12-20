@@ -3,10 +3,10 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { RegistrationService } from '../../src/auth/registration.service';
 import { EmailService } from '../../src/infrastructure/email.service';
 import { db } from '../../src/db';
-import { 
-  users, 
+import {
+  users,
   emailVerificationTokensTable,
-  passwordResetTokensTable 
+  passwordResetTokensTable,
 } from '../../src/db/schema';
 import * as bcrypt from 'bcrypt';
 import { eq } from 'drizzle-orm';
@@ -69,7 +69,9 @@ describe('RegistrationService - Password Policy', () => {
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_password');
 
       // Mock db.insert for users
-      const mockReturning = jest.fn().mockResolvedValue([{ id: 'test-user-id' }]);
+      const mockReturning = jest
+        .fn()
+        .mockResolvedValue([{ id: 'test-user-id' }]);
       const mockValues = jest.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -89,7 +91,7 @@ describe('RegistrationService - Password Policy', () => {
           email: 'test@example.com',
           password: 'Short1!',
           name: 'Test User',
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -100,7 +102,7 @@ describe('RegistrationService - Password Policy', () => {
           email: 'test@example.com',
           password: longPassword + 'X'.repeat(10), // Make it 133 chars
           name: 'Test User',
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -110,7 +112,7 @@ describe('RegistrationService - Password Policy', () => {
           email: 'test@example.com',
           password: 'password123!',
           name: 'Test User',
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -120,7 +122,7 @@ describe('RegistrationService - Password Policy', () => {
           email: 'test@example.com',
           password: 'PASSWORD123!',
           name: 'Test User',
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -130,7 +132,7 @@ describe('RegistrationService - Password Policy', () => {
           email: 'test@example.com',
           password: 'Password!',
           name: 'Test User',
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -140,7 +142,7 @@ describe('RegistrationService - Password Policy', () => {
           email: 'test@example.com',
           password: 'Password123',
           name: 'Test User',
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -218,7 +220,10 @@ describe('RegistrationService - Password Policy', () => {
         set: mockSet,
       });
 
-      const result = await service.resetPassword(validResetToken, 'NewPassword123!');
+      const result = await service.resetPassword(
+        validResetToken,
+        'NewPassword123!',
+      );
 
       expect(result).toEqual({ message: 'Password reset successfully' });
       expect(bcrypt.hash).toHaveBeenCalledWith('NewPassword123!', 12);
@@ -237,7 +242,7 @@ describe('RegistrationService - Password Policy', () => {
       });
 
       await expect(
-        service.resetPassword(invalidResetToken, 'NewPassword123!')
+        service.resetPassword(invalidResetToken, 'NewPassword123!'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -262,7 +267,7 @@ describe('RegistrationService - Password Policy', () => {
       });
 
       await expect(
-        service.resetPassword(usedResetToken, 'NewPassword123!')
+        service.resetPassword(usedResetToken, 'NewPassword123!'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -287,7 +292,7 @@ describe('RegistrationService - Password Policy', () => {
       });
 
       await expect(
-        service.resetPassword(expiredResetToken, 'NewPassword123!')
+        service.resetPassword(expiredResetToken, 'NewPassword123!'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -313,7 +318,7 @@ describe('RegistrationService - Password Policy', () => {
 
       // Should reject weak password
       await expect(
-        service.resetPassword(validResetToken, 'weak')
+        service.resetPassword(validResetToken, 'weak'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -353,7 +358,7 @@ describe('RegistrationService - Password Policy', () => {
         expect.objectContaining({
           failed_login_attempts: 0,
           locked_until: null,
-        })
+        }),
       );
     });
   });
@@ -390,8 +395,8 @@ describe('RegistrationService - Password Policy', () => {
 
       const result = await service.requestPasswordReset('test@example.com');
 
-      expect(result).toEqual({ 
-        message: 'If an account exists, a password reset email will be sent.' 
+      expect(result).toEqual({
+        message: 'If an account exists, a password reset email will be sent.',
       });
       expect(emailService.sendPasswordResetEmail).toHaveBeenCalled();
     });
@@ -408,10 +413,12 @@ describe('RegistrationService - Password Policy', () => {
         from: mockFrom,
       });
 
-      const result = await service.requestPasswordReset('nonexistent@example.com');
+      const result = await service.requestPasswordReset(
+        'nonexistent@example.com',
+      );
 
-      expect(result).toEqual({ 
-        message: 'If an account exists, a password reset email will be sent.' 
+      expect(result).toEqual({
+        message: 'If an account exists, a password reset email will be sent.',
       });
       expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
@@ -490,7 +497,7 @@ describe('RegistrationService - Password Policy', () => {
         expect.objectContaining({
           userId: 'user-123',
           used: false,
-        })
+        }),
       );
 
       // Check that expiresAt is within the expected range

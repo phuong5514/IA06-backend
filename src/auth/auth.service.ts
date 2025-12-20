@@ -26,7 +26,12 @@ export class AuthService {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
-  async generateTokenPair(userId: string, email: string, deviceInfo?: string, ip?: string): Promise<TokenPair> {
+  async generateTokenPair(
+    userId: string,
+    email: string,
+    deviceInfo?: string,
+    ip?: string,
+  ): Promise<TokenPair> {
     const jti = randomUUID();
 
     // Generate access token (short-lived: 15 minutes)
@@ -99,8 +104,8 @@ export class AuthService {
         .where(
           and(
             eq(refreshTokensTable.userId, payload.sub),
-            eq(refreshTokensTable.jti, payload.jti)
-          )
+            eq(refreshTokensTable.jti, payload.jti),
+          ),
         );
 
       if (tokens.length === 0) {
@@ -128,7 +133,7 @@ export class AuthService {
 
   async refreshAccessToken(refreshToken: string): Promise<TokenPair | null> {
     const payload = await this.validateRefreshToken(refreshToken);
-    
+
     if (!payload) {
       return null;
     }

@@ -49,7 +49,10 @@ export class AppLogger implements LoggerService {
         new winston.transports.Console({
           format:
             process.env.NODE_ENV === 'development'
-              ? winston.format.combine(winston.format.colorize(), winston.format.simple())
+              ? winston.format.combine(
+                  winston.format.colorize(),
+                  winston.format.simple(),
+                )
               : format,
         }),
         // Add file transport for production
@@ -93,7 +96,11 @@ export class AppLogger implements LoggerService {
   }
 
   // Custom methods for structured logging
-  logOperation(operation: string, outcome: 'success' | 'failure', metadata?: Record<string, any>) {
+  logOperation(
+    operation: string,
+    outcome: 'success' | 'failure',
+    metadata?: Record<string, any>,
+  ) {
     this.logger.info('Operation', {
       operation,
       outcome,
@@ -101,7 +108,12 @@ export class AppLogger implements LoggerService {
     });
   }
 
-  logAuthEvent(event: string, userId?: number, success: boolean = true, metadata?: Record<string, any>) {
+  logAuthEvent(
+    event: string,
+    userId?: number,
+    success: boolean = true,
+    metadata?: Record<string, any>,
+  ) {
     this.logger.info('Auth Event', {
       event,
       user_id: userId,

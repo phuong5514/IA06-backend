@@ -10,7 +10,9 @@ import 'dotenv/config';
 // Validate required environment variables in production
 if (process.env.NODE_ENV === 'production') {
   const requiredEnvVars = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'];
-  const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+  const missingVars = requiredEnvVars.filter(
+    (varName) => !process.env[varName],
+  );
 
   if (missingVars.length > 0) {
     throw new Error(
