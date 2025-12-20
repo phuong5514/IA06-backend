@@ -91,7 +91,7 @@ describe('Menu Item Image Upload (e2e)', () => {
       // Create a small test image buffer (1x1 pixel PNG)
       const testImageBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-        'base64'
+        'base64',
       );
 
       return request(app.getHttpServer())
@@ -148,7 +148,7 @@ describe('Menu Item Image Upload (e2e)', () => {
     it('should require authentication', () => {
       const testImageBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-        'base64'
+        'base64',
       );
 
       return request(app.getHttpServer())
@@ -160,7 +160,7 @@ describe('Menu Item Image Upload (e2e)', () => {
     it('should reject when menu item does not exist', () => {
       const testImageBuffer = Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-        'base64'
+        'base64',
       );
 
       return request(app.getHttpServer())

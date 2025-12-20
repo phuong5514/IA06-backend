@@ -28,10 +28,14 @@ export class ExportController {
     const csvData = [];
 
     for (const category of categories) {
-      const categoryItems = items.filter(item => item.category_id === category.id);
+      const categoryItems = items.filter(
+        (item) => item.category_id === category.id,
+      );
 
       for (const item of categoryItems) {
-        const itemModifiers = modifiers.filter(mod => mod.menu_item_id === item.id);
+        const itemModifiers = modifiers.filter(
+          (mod) => mod.menu_item_id === item.id,
+        );
 
         // Base item row
         const baseRow = {
@@ -92,7 +96,10 @@ export class ExportController {
 
     // Set response headers for CSV download
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="menu_export.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="menu_export.csv"',
+    );
     res.send(csv);
   }
 }

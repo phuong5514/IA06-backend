@@ -57,7 +57,13 @@ describe('ModifiersController', () => {
     });
 
     it('should create a group', async () => {
-      const mockGroup = { id: 1, name: 'Size', type: 'single' as const, is_required: false, menu_item_id: 1 };
+      const mockGroup = {
+        id: 1,
+        name: 'Size',
+        type: 'single' as const,
+        is_required: false,
+        menu_item_id: 1,
+      };
       jest.spyOn(service, 'createGroup').mockResolvedValue(mockGroup as any);
 
       const result = await controller.createGroup(mockGroup);
@@ -82,7 +88,9 @@ describe('ModifiersController', () => {
   describe('Modifier Options', () => {
     it('should return all options', async () => {
       const mockOptions = [{ id: 1, name: 'Large' }];
-      jest.spyOn(service, 'findAllOptions').mockResolvedValue(mockOptions as any);
+      jest
+        .spyOn(service, 'findAllOptions')
+        .mockResolvedValue(mockOptions as any);
 
       const result = await controller.findAllOptions();
       expect(result).toEqual({ options: mockOptions });
@@ -97,7 +105,12 @@ describe('ModifiersController', () => {
     });
 
     it('should create an option', async () => {
-      const mockOption = { id: 1, name: 'Large', modifier_group_id: 1, price_adjustment: '2.00' };
+      const mockOption = {
+        id: 1,
+        name: 'Large',
+        modifier_group_id: 1,
+        price_adjustment: '2.00',
+      };
       jest.spyOn(service, 'createOption').mockResolvedValue(mockOption as any);
 
       const result = await controller.createOption(mockOption);
@@ -122,7 +135,9 @@ describe('ModifiersController', () => {
   describe('Validation', () => {
     it('should validate modifier selection', async () => {
       const mockValidation = { valid: true, errors: [] };
-      jest.spyOn(service, 'validateModifierSelection').mockResolvedValue(mockValidation);
+      jest
+        .spyOn(service, 'validateModifierSelection')
+        .mockResolvedValue(mockValidation);
 
       const result = await service.validateModifierSelection(1, [1, 2]);
       expect(result).toEqual(mockValidation);

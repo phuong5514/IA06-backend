@@ -11,7 +11,7 @@ import {
   ModifierGroup,
   NewModifierGroup,
   ModifierOption,
-  NewModifierOption
+  NewModifierOption,
 } from '../db/schema';
 import 'dotenv/config';
 
@@ -169,7 +169,7 @@ export class ModifiersService {
     const errors: string[] = [];
 
     for (const group of groups) {
-      const groupOptions = selectedOptions.filter(optionId => {
+      const groupOptions = selectedOptions.filter((optionId) => {
         // Check if option belongs to this group
         // This would need a query to check, but for now we'll assume validation is done elsewhere
         return true;
@@ -190,14 +190,16 @@ export class ModifiersService {
     };
   }
 
-  async findAllModifiers(): Promise<Array<{
-    menu_item_id: number;
-    group_name: string;
-    group_type: string;
-    option_name: string;
-    price_adjustment: number;
-    is_available: boolean;
-  }>> {
+  async findAllModifiers(): Promise<
+    Array<{
+      menu_item_id: number;
+      group_name: string;
+      group_type: string;
+      option_name: string;
+      price_adjustment: number;
+      is_available: boolean;
+    }>
+  > {
     const result = await this.db
       .select({
         menu_item_id: modifierGroups.menu_item_id,
@@ -208,8 +210,14 @@ export class ModifiersService {
         is_available: modifierOptions.is_available,
       })
       .from(modifierOptions)
-      .innerJoin(modifierGroups, eq(modifierOptions.modifier_group_id, modifierGroups.id))
-      .orderBy(asc(modifierGroups.display_order), asc(modifierOptions.display_order));
+      .innerJoin(
+        modifierGroups,
+        eq(modifierOptions.modifier_group_id, modifierGroups.id),
+      )
+      .orderBy(
+        asc(modifierGroups.display_order),
+        asc(modifierOptions.display_order),
+      );
 
     return result;
   }

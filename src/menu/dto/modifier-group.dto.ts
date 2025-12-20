@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsBoolean, IsIn, MaxLength, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsIn,
+  MaxLength,
+  IsNumber,
+} from 'class-validator';
 
 export class CreateModifierGroupDto {
   @IsNumber()

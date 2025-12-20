@@ -10,7 +10,13 @@ import { ExportController } from './export.controller';
 import { ImportController } from './import.controller';
 
 @Module({
-  controllers: [CategoriesController, ItemsController, ModifiersController, ExportController, ImportController],
+  controllers: [
+    CategoriesController,
+    ItemsController,
+    ModifiersController,
+    ExportController,
+    ImportController,
+  ],
   providers: [CategoriesService, ItemsService, ImageService, ModifiersService],
   exports: [CategoriesService, ItemsService, ImageService, ModifiersService],
 })

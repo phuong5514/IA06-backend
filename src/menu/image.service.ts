@@ -36,8 +36,14 @@ export class ImageService {
     const extension = path.extname(file.originalname);
     const baseName = `${timestamp}_${random}`;
 
-    const originalPath = path.join(this.uploadDir, `${baseName}_original${extension}`);
-    const thumbnailPath = path.join(this.uploadDir, `${baseName}_thumbnail.jpg`);
+    const originalPath = path.join(
+      this.uploadDir,
+      `${baseName}_original${extension}`,
+    );
+    const thumbnailPath = path.join(
+      this.uploadDir,
+      `${baseName}_thumbnail.jpg`,
+    );
     const displayPath = path.join(this.uploadDir, `${baseName}_display.jpg`);
 
     try {
@@ -68,7 +74,9 @@ export class ImageService {
       // Determine format
       const format = extension.substring(1).toLowerCase();
       const allowedFormats = ['jpeg', 'jpg', 'png', 'webp'];
-      const normalizedFormat = allowedFormats.includes(format) ? format : 'jpeg';
+      const normalizedFormat = allowedFormats.includes(format)
+        ? format
+        : 'jpeg';
 
       // Save to database
       const imageData = {
@@ -79,7 +87,10 @@ export class ImageService {
         format: normalizedFormat,
       };
 
-      const savedImage = await this.itemsService.addImage(menuItemId, imageData);
+      const savedImage = await this.itemsService.addImage(
+        menuItemId,
+        imageData,
+      );
 
       return {
         id: savedImage.id,

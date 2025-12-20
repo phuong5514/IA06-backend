@@ -52,7 +52,9 @@ describe('Menu Items Availability (e2e)', () => {
   afterAll(async () => {
     // Clean up test category
     if (testCategoryId) {
-      await db.delete(menuCategories).where(eq(menuCategories.id, testCategoryId));
+      await db
+        .delete(menuCategories)
+        .where(eq(menuCategories.id, testCategoryId));
     }
     await app.close();
   });

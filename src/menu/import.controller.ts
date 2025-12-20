@@ -53,7 +53,9 @@ export class ImportController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   @UseInterceptors(FileInterceptor('file'))
-  async importMenu(@UploadedFile() file: Express.Multer.File): Promise<ImportResult> {
+  async importMenu(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ImportResult> {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -85,7 +87,9 @@ export class ImportController {
 
       for (const field of requiredFields) {
         if (!(field in firstRecord)) {
-          throw new BadRequestException(`Required field '${field}' is missing from CSV`);
+          throw new BadRequestException(
+            `Required field '${field}' is missing from CSV`,
+          );
         }
       }
 
@@ -106,7 +110,9 @@ export class ImportController {
           // Process category
           const categoryName = record.category_name?.trim();
           if (!categoryName) {
-            result.errors.push(`Row ${records.indexOf(record) + 1}: Category name is required`);
+            result.errors.push(
+              `Row ${records.indexOf(record) + 1}: Category name is required`,
+            );
             continue;
           }
 
@@ -114,7 +120,9 @@ export class ImportController {
           if (!categoryId) {
             // Check if category exists
             const existingCategories = await this.categoriesService.findAll();
-            const existingCategory = existingCategories.find(c => c.name === categoryName);
+            const existingCategory = existingCategories.find(
+              (c) => c.name === categoryName,
+            );
 
             if (existingCategory) {
               categoryId = existingCategory.id;
@@ -135,7 +143,9 @@ export class ImportController {
           // Process item
           const itemName = record.item_name?.trim();
           if (!itemName) {
-            result.errors.push(`Row ${records.indexOf(record) + 1}: Item name is required`);
+            result.errors.push(
+              `Row ${records.indexOf(record) + 1}: Item name is required`,
+            );
             continue;
           }
 
@@ -145,11 +155,14 @@ export class ImportController {
           if (!itemId) {
             const itemPrice = parseFloat(record.item_price);
             if (isNaN(itemPrice) || itemPrice < 0) {
-              result.errors.push(`Row ${records.indexOf(record) + 1}: Invalid item price`);
+              result.errors.push(
+                `Row ${records.indexOf(record) + 1}: Invalid item price`,
+              );
               continue;
             }
 
-            const isAvailable = record.item_is_available?.toLowerCase() === 'true';
+            const isAvailable =
+              record.item_is_available?.toLowerCase() === 'true';
 
             // Create new item
             const newItem = await this.itemsService.create({
@@ -157,7 +170,9 @@ export class ImportController {
               name: itemName,
               description: record.item_description?.trim() || null,
               price: itemPrice.toString(),
-              dietary_tags: record.item_dietary_tags ? record.item_dietary_tags.split(';').map(t => t.trim()) : [],
+              dietary_tags: record.item_dietary_tags
+                ? record.item_dietary_tags.split(';').map((t) => t.trim())
+                : [],
               is_available: isAvailable,
               display_order: 0,
             });
@@ -189,13 +204,18 @@ export class ImportController {
             }
 
             // Create modifier option
-            const priceAdjustment = parseFloat(record.modifier_option_price_adjustment || '0');
+            const priceAdjustment = parseFloat(
+              record.modifier_option_price_adjustment || '0',
+            );
             if (isNaN(priceAdjustment)) {
-              result.errors.push(`Row ${records.indexOf(record) + 1}: Invalid modifier price adjustment`);
+              result.errors.push(
+                `Row ${records.indexOf(record) + 1}: Invalid modifier price adjustment`,
+              );
               continue;
             }
 
-            const optionIsAvailable = record.modifier_option_is_available?.toLowerCase() !== 'false';
+            const optionIsAvailable =
+              record.modifier_option_is_available?.toLowerCase() !== 'false';
 
             await this.modifiersService.createOption({
               modifier_group_id: groupId,
@@ -207,7 +227,9 @@ export class ImportController {
             result.imported.modifiers++;
           }
         } catch (error) {
-          result.errors.push(`Row ${records.indexOf(record) + 1}: ${error.message}`);
+          result.errors.push(
+            `Row ${records.indexOf(record) + 1}: ${error.message}`,
+          );
         }
       }
 

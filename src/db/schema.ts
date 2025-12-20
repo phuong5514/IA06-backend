@@ -146,7 +146,9 @@ export type NewMenuCategory = typeof menuCategories.$inferInsert;
 // Menu Items
 export const menuItems = pgTable('menu_items', {
   id: serial('id').primaryKey(),
-  category_id: integer('category_id').notNull().references(() => menuCategories.id, { onDelete: 'restrict' }),
+  category_id: integer('category_id')
+    .notNull()
+    .references(() => menuCategories.id, { onDelete: 'restrict' }),
   name: varchar('name', { length: 200 }).notNull(),
   description: text('description'),
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
@@ -169,7 +171,9 @@ export type NewMenuItem = typeof menuItems.$inferInsert;
 // Menu Item Images
 export const menuItemImages = pgTable('menu_item_images', {
   id: serial('id').primaryKey(),
-  menu_item_id: integer('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  menu_item_id: integer('menu_item_id')
+    .notNull()
+    .references(() => menuItems.id, { onDelete: 'cascade' }),
   original_url: varchar('original_url', { length: 500 }).notNull(),
   thumbnail_url: varchar('thumbnail_url', { length: 500 }).notNull(),
   display_url: varchar('display_url', { length: 500 }).notNull(),
@@ -186,7 +190,9 @@ export type NewMenuItemImage = typeof menuItemImages.$inferInsert;
 // Modifier Groups
 export const modifierGroups = pgTable('modifier_groups', {
   id: serial('id').primaryKey(),
-  menu_item_id: integer('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  menu_item_id: integer('menu_item_id')
+    .notNull()
+    .references(() => menuItems.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 100 }).notNull(),
   type: varchar('type', { length: 20 }).notNull(), // 'single' or 'multiple'
   is_required: boolean('is_required').default(false).notNull(),
@@ -205,9 +211,13 @@ export type NewModifierGroup = typeof modifierGroups.$inferInsert;
 // Modifier Options
 export const modifierOptions = pgTable('modifier_options', {
   id: serial('id').primaryKey(),
-  modifier_group_id: integer('modifier_group_id').notNull().references(() => modifierGroups.id, { onDelete: 'cascade' }),
+  modifier_group_id: integer('modifier_group_id')
+    .notNull()
+    .references(() => modifierGroups.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 100 }).notNull(),
-  price_adjustment: decimal('price_adjustment', { precision: 10, scale: 2 }).default('0.00').notNull(),
+  price_adjustment: decimal('price_adjustment', { precision: 10, scale: 2 })
+    .default('0.00')
+    .notNull(),
   display_order: integer('display_order').default(0).notNull(),
   is_available: boolean('is_available').default(true).notNull(),
   created_at: timestamp('created_at', { mode: 'string' })

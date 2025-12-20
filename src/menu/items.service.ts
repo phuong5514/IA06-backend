@@ -5,10 +5,19 @@ import {
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, asc, desc, sql } from 'drizzle-orm';
-import { menuItems, menuItemImages, MenuItem, NewMenuItem, MenuItemImage } from '../db/schema';
+import {
+  menuItems,
+  menuItemImages,
+  MenuItem,
+  NewMenuItem,
+  MenuItemImage,
+} from '../db/schema';
 import 'dotenv/config';
 
-type NewMenuItemImageInput = Omit<MenuItemImage, 'id' | 'menu_item_id' | 'created_at'>;
+type NewMenuItemImageInput = Omit<
+  MenuItemImage,
+  'id' | 'menu_item_id' | 'created_at'
+>;
 
 @Injectable()
 export class ItemsService {
@@ -18,25 +27,27 @@ export class ItemsService {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
-  async findAll(categoryId?: number, availableOnly: boolean = true): Promise<MenuItem[]> {
-    let query = this.db
+  async findAll(
+    categoryId?: number,
+    availableOnly: boolean = true,
+  ): Promise<MenuItem[]> {
+    const query = this.db
       .select()
       .from(menuItems)
-      .where(and(
-        eq(menuItems.deleted_at, null),
-        availableOnly ? eq(menuItems.is_available, true) : undefined,
-        categoryId ? eq(menuItems.category_id, categoryId) : undefined
-      ))
+      .where(
+        and(
+          eq(menuItems.deleted_at, null),
+          availableOnly ? eq(menuItems.is_available, true) : undefined,
+          categoryId ? eq(menuItems.category_id, categoryId) : undefined,
+        ),
+      )
       .orderBy(asc(menuItems.display_order), asc(menuItems.name));
 
     return query;
   }
 
   async create(data: NewMenuItem): Promise<MenuItem> {
-    const [item] = await this.db
-      .insert(menuItems)
-      .values(data)
-      .returning();
+    const [item] = await this.db.insert(menuItems).values(data).returning();
 
     return item;
   }
@@ -86,7 +97,10 @@ export class ItemsService {
     }
   }
 
-  async addImage(menuItemId: number, imageData: NewMenuItemImageInput): Promise<MenuItemImage> {
+  async addImage(
+    menuItemId: number,
+    imageData: NewMenuItemImageInput,
+  ): Promise<MenuItemImage> {
     // Verify menu item exists
     const [item] = await this.db
       .select()

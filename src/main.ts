@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import { AppLogger } from './infrastructure/logger';
 import { LoggingInterceptor } from './infrastructure/logging.interceptor';
+import { setupSwagger } from './docs/openapi';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -56,6 +57,9 @@ async function bootstrap() {
     preflightContinue: false,
     optionsSuccessStatus: 204,
   });
+
+  // Setup Swagger documentation
+  setupSwagger(app);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
