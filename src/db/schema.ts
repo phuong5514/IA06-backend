@@ -2,7 +2,7 @@ import { pgTable, serial, varchar, integer, boolean, timestamp, uuid, text } fro
 import { sql } from "drizzle-orm";
 
 export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
+  id: uuid('id').default(sql`gen_random_uuid()`).primaryKey(),
   email: varchar('email', { length: 255 }).notNull(),
   password: varchar('password', { length: 255 }).notNull(),
   role: varchar('role', { length: 50 }).notNull().default('customer'),

@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import 'dotenv/config';
 
 export interface JwtPayload {
-  sub: number; // user id
+  sub: string; // user id (UUID)
   email: string;
   jti?: string; // JWT ID for refresh token
 }
@@ -26,7 +26,7 @@ export class AuthService {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
-  async generateTokenPair(userId: number, email: string, deviceInfo?: string, ip?: string): Promise<TokenPair> {
+  async generateTokenPair(userId: string, email: string, deviceInfo?: string, ip?: string): Promise<TokenPair> {
     const jti = randomUUID();
 
     // Generate access token (short-lived: 15 minutes)
@@ -158,7 +158,7 @@ export class AuthService {
     }
   }
 
-  async revokeAllUserTokens(userId: number): Promise<boolean> {
+  async revokeAllUserTokens(userId: string): Promise<boolean> {
     try {
       await this.db
         .update(refreshTokensTable)
