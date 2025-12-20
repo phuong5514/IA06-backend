@@ -189,4 +189,28 @@ export class ModifiersService {
       errors,
     };
   }
+
+  async findAllModifiers(): Promise<Array<{
+    menu_item_id: number;
+    group_name: string;
+    group_type: string;
+    option_name: string;
+    price_adjustment: number;
+    is_available: boolean;
+  }>> {
+    const result = await this.db
+      .select({
+        menu_item_id: modifierGroups.menu_item_id,
+        group_name: modifierGroups.name,
+        group_type: modifierGroups.type,
+        option_name: modifierOptions.name,
+        price_adjustment: modifierOptions.price_adjustment,
+        is_available: modifierOptions.is_available,
+      })
+      .from(modifierOptions)
+      .innerJoin(modifierGroups, eq(modifierOptions.modifier_group_id, modifierGroups.id))
+      .orderBy(asc(modifierGroups.display_order), asc(modifierOptions.display_order));
+
+    return result;
+  }
 }

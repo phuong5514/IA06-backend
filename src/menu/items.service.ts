@@ -32,6 +32,15 @@ export class ItemsService {
     return query;
   }
 
+  async create(data: NewMenuItem): Promise<MenuItem> {
+    const [item] = await this.db
+      .insert(menuItems)
+      .values(data)
+      .returning();
+
+    return item;
+  }
+
   async findOne(id: number): Promise<MenuItem & { images?: MenuItemImage[] }> {
     const [item] = await this.db
       .select()
@@ -50,15 +59,6 @@ export class ItemsService {
       .orderBy(desc(menuItemImages.created_at));
 
     return { ...item, images };
-  }
-
-  async create(data: NewMenuItem): Promise<MenuItem> {
-    const [item] = await this.db
-      .insert(menuItems)
-      .values(data)
-      .returning();
-
-    return item;
   }
 
   async update(id: number, data: Partial<NewMenuItem>): Promise<MenuItem> {
