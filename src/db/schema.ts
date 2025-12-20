@@ -1,18 +1,38 @@
-import { pgTable, uuid, varchar, timestamp, boolean, text } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, integer, boolean, timestamp, uuid, text } from 'drizzle-orm/pg-core'
 import { sql } from "drizzle-orm";
 
-export const usersTable = pgTable("users", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  password: text("password").notNull(),
-  role: varchar("role", { length: 50 }).notNull().default('customer'),
-  is_active: boolean("is_active").notNull().default(true),
-  created_at: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-});
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  email: varchar('email', { length: 255 }).notNull(),
+  password_hash: varchar('password_hash', { length: 255 }).notNull(),
+  role: varchar('role', { length: 50 }).notNull(),
+  name: varchar('name', { length: 200 }),
+  phone: varchar('phone', { length: 20 }),
+  is_active: boolean('is_active').default(true).notNull(),
+  email_verified: boolean('email_verified').default(false).notNull(),
+  last_login: timestamp('last_login', { mode: 'string' }),
+  failed_login_attempts: integer('failed_login_attempts').default(0).notNull(),
+  locked_until: timestamp('locked_until', { mode: 'string' }),
+  deleted_at: timestamp('deleted_at', { mode: 'string' }),
+  created_at: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' }).defaultNow().notNull(),
+})
+
+export type Users = typeof users
+
+
+// export const usersTable = pgTable("users", {
+//   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+//   email: varchar("email", { length: 255 }).notNull().unique(),
+//   password: text("password").notNull(),
+//   role: varchar("role", { length: 50 }).notNull().default('customer'),
+//   is_active: boolean("is_active").notNull().default(true),
+//   created_at: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+// });
 
 export const refreshTokensTable = pgTable("refresh_tokens", {
   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  user_id: uuid("user_id").notNull().references(() => usersTable.id),
+  user_id: uuid("user_id").notNull().references(() => users.id),
   token_hash: text("token_hash").notNull().unique(),
   jti: varchar("jti", { length: 255 }).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
