@@ -89,6 +89,7 @@ export class UserService {
         const tokens = await this.authService.generateTokenPair(
           user.id,
           user.email,
+          user.role,
           deviceInfo,
           ip,
         );

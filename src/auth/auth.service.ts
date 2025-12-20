@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and } from 'drizzle-orm';
-import { refreshTokensTable } from '../db/schema';
+import { refreshTokensTable, usersTable } from '../db/schema';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import 'dotenv/config';
@@ -10,6 +10,7 @@ import 'dotenv/config';
 export interface JwtPayload {
   sub: string; // user id (UUID)
   email: string;
+  role: string;
   jti?: string; // JWT ID for refresh token
 }
 
@@ -29,6 +30,7 @@ export class AuthService {
   async generateTokenPair(
     userId: string,
     email: string,
+    role: string,
     deviceInfo?: string,
     ip?: string,
   ): Promise<TokenPair> {
@@ -38,6 +40,7 @@ export class AuthService {
     const accessTokenPayload: JwtPayload = {
       sub: userId,
       email: email,
+      role: role,
     };
 
     const accessToken = this.jwtService.sign(accessTokenPayload, {
@@ -49,6 +52,7 @@ export class AuthService {
     const refreshTokenPayload: JwtPayload = {
       sub: userId,
       email: email,
+      role: role,
       jti: jti,
     };
 
@@ -147,8 +151,19 @@ export class AuthService {
       // ignore revocation errors
     }
 
+    // Fetch user role from database
+    const users = await this.db
+      .select({ role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, payload.sub))
+      .limit(1);
+
+    if (users.length === 0) {
+      return null;
+    }
+
     // Generate new token pair
-    return this.generateTokenPair(payload.sub, payload.email);
+    return this.generateTokenPair(payload.sub, payload.email, users[0].role);
   }
 
   async revokeRefreshToken(jti: string): Promise<boolean> {
