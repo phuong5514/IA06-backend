@@ -42,6 +42,9 @@ export class RegistrationService {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
+    // Check if email verification is enabled
+    const emailEnabled = process.env.SMTP_HOST && process.env.SMTP_USER;
+
     // Create user with customer role by default
     const [newUser] = await db
       .insert(users)
@@ -52,33 +55,37 @@ export class RegistrationService {
         phone: phone || null,
         role: 'customer',
         is_active: true,
-        email_verified: false,
+        email_verified: !emailEnabled, // Auto-verify if email is disabled
       })
       .returning({ id: users.id });
 
-    // Generate verification token
-    const verificationToken = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Generate and send verification token only if email is enabled
+    if (emailEnabled) {
+      // Generate verification token
+      const verificationToken = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Store verification token
-    await db.insert(emailVerificationTokensTable).values({
-      userId: newUser.id,
-      token: verificationToken,
-      expiresAt: expiresAt,
-      used: false,
-    });
+      // Store verification token
+      await db.insert(emailVerificationTokensTable).values({
+        userId: newUser.id,
+        token: verificationToken,
+        expiresAt: expiresAt,
+        used: false,
+      });
 
-    // Send verification email
-    try {
-      await this.emailService.sendVerificationEmail(email, verificationToken);
-    } catch (error) {
-      // Log error but don't fail registration
-      console.error('Failed to send verification email:', error);
+      // Send verification email
+      try {
+        await this.emailService.sendVerificationEmail(email, verificationToken);
+      } catch (error) {
+        // Log error but don't fail registration
+        console.error('Failed to send verification email:', error);
+      }
     }
 
     return {
-      message:
-        'Registration successful. Please check your email to verify your account.',
+      message: emailEnabled
+        ? 'Registration successful. Please check your email to verify your account.'
+        : 'Registration successful. Email verification is disabled.',
       userId: newUser.id,
     };
   }

@@ -1,7 +1,7 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { NestApplication } from '@nestjs/core';
+import { INestApplication } from '@nestjs/common';
 
-export function setupSwagger(app: NestApplication): void {
+export function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('Smart Restaurant API')
     .setDescription('API for Smart Restaurant QR-based ordering system')

@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import { AppLogger } from './infrastructure/logger';
 import { LoggingInterceptor } from './infrastructure/logging.interceptor';
+import { MetricsService } from './infrastructure/metrics';
 import { setupSwagger } from './docs/openapi';
 
 async function bootstrap() {
@@ -19,7 +20,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Add global logging interceptor
-  const metricsService = app.get('MetricsService');
+  const metricsService = app.get(MetricsService);
   app.useGlobalInterceptors(new LoggingInterceptor(logger, metricsService));
 
   // Configure CORS for both development and production
