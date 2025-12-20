@@ -34,7 +34,7 @@ export class UserService {
       }
 
       // Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 12);
 
       const newUser: typeof usersTable.$inferInsert = {
         email: email,

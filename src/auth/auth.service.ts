@@ -53,7 +53,7 @@ export class AuthService {
     });
 
     // Hash refresh token before storing
-    const tokenHash = await bcrypt.hash(refreshToken, 10);
+    const tokenHash = await bcrypt.hash(refreshToken, 12);
 
     // Calculate expiration date (7 days from now)
     const expiresAt = new Date();
@@ -131,6 +131,15 @@ export class AuthService {
     
     if (!payload) {
       return null;
+    }
+
+    // Revoke the old refresh token (token rotation)
+    try {
+      if (payload.jti) {
+        await this.revokeRefreshToken(payload.jti);
+      }
+    } catch (err) {
+      // ignore revocation errors
     }
 
     // Generate new token pair
