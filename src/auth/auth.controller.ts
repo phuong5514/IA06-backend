@@ -4,11 +4,43 @@ import { AuthService } from './auth.service'
 import { UserService } from '../app.service'
 import { LoginDto } from './dto/login.dto'
 import { RefreshDto } from './dto/refresh.dto'
+import { RegisterDto } from './dto/register.dto'
+import { VerifyEmailDto } from './dto/verify-email.dto'
 import { JwtAuthGuard } from './jwt-auth.guard'
+import { RegistrationService } from './registration.service'
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService, private readonly userService: UserService) {}
+  constructor(
+    private readonly authService: AuthService, 
+    private readonly userService: UserService,
+    private readonly registrationService: RegistrationService,
+  ) {}
+
+  @Post('register')
+  async register(@Body() registerDto: RegisterDto) {
+    return this.registrationService.register(registerDto);
+  }
+
+  @Post('verify-email')
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.registrationService.verifyEmail(verifyEmailDto.token);
+  }
+
+  @Post('resend-verification')
+  async resendVerification(@Body() body: { email: string }) {
+    return this.registrationService.resendVerificationEmail(body.email);
+  }
+
+  @Post('request-password-reset')
+  async requestPasswordReset(@Body() body: { email: string }) {
+    return this.registrationService.requestPasswordReset(body.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() body: { token: string; password: string }) {
+    return this.registrationService.resetPassword(body.token, body.password);
+  }
 
   @Post('login')
   async login(@Body() body: LoginDto, @Req() req: express.Request, @Res({ passthrough: true }) res: express.Response) {

@@ -2,12 +2,24 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
+import { AppLogger } from './infrastructure/logger';
+import { LoggingInterceptor } from './infrastructure/logging.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  // Set custom logger
+  const logger = app.get(AppLogger);
+  app.useLogger(logger);
 
   // Enable cookie parser
   app.use(cookieParser());
+
+  // Add global logging interceptor
+  const metricsService = app.get('MetricsService');
+  app.useGlobalInterceptors(new LoggingInterceptor(logger, metricsService));
 
   // Configure CORS for both development and production
   const allowedOrigins = [
@@ -37,12 +49,14 @@ async function bootstrap() {
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-    exposedHeaders: ['Set-Cookie'],
+    exposedHeaders: ['Set-Cookie', 'X-Request-ID'],
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204,
   });
 
-  await app.listen(process.env.PORT || 3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  logger.log(`Application is running on: http://localhost:${port}`, 'Bootstrap');
 }
 bootstrap();

@@ -44,3 +44,23 @@ export const refreshTokensTable = pgTable("refresh_tokens", {
   deviceInfo: text("device_info"),
   issuedByIp: text("issued_by_ip"),
 });
+
+// Email verification tokens
+export const emailVerificationTokensTable = pgTable("email_verification_tokens", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`).notNull(),
+});
+
+// Password reset tokens
+export const passwordResetTokensTable = pgTable("password_reset_tokens", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`).notNull(),
+});
