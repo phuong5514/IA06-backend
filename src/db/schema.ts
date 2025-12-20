@@ -64,3 +64,20 @@ export const passwordResetTokensTable = pgTable("password_reset_tokens", {
   used: boolean("used").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`).notNull(),
 });
+
+// Tables
+export const tables = pgTable('tables', {
+  id: serial('id').primaryKey(),
+  table_number: varchar('table_number', { length: 50 }).notNull().unique(),
+  capacity: integer('capacity').notNull().default(4),
+  location: varchar('location', { length: 200 }),
+  is_active: boolean('is_active').notNull().default(true),
+  qr_token: text('qr_token'),
+  qr_generated_at: timestamp('qr_generated_at', { mode: 'string' }),
+  qr_expires_at: timestamp('qr_expires_at', { mode: 'string' }),
+  created_at: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' }).defaultNow().notNull(),
+});
+
+export type Table = typeof tables.$inferSelect;
+export type NewTable = typeof tables.$inferInsert;
