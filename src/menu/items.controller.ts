@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ItemsService } from './items.service';
 import { ImageService } from './image.service';
 import { RolesGuard, Roles } from '../auth/roles.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MenuItem } from '../db/schema';
 
 @Controller('menu/items')
@@ -42,7 +43,7 @@ export class ItemsController {
   }
 
   @Post()
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   async create(@Body() createItemDto: any): Promise<MenuItem> {
     // TODO: Add proper DTO validation
@@ -50,7 +51,7 @@ export class ItemsController {
   }
 
   @Put(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -61,14 +62,14 @@ export class ItemsController {
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.itemsService.remove(id);
   }
 
   @Post(':id/image')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   @UseInterceptors(FileInterceptor('image'))
   async uploadImage(

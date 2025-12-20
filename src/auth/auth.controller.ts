@@ -6,6 +6,7 @@ import {
   Res,
   UseGuards,
   Get,
+  HttpCode,
 } from '@nestjs/common';
 import express from 'express';
 import { AuthService } from './auth.service';
@@ -50,6 +51,7 @@ export class AuthController {
     return this.registrationService.resetPassword(body.token, body.password);
   }
 
+  @HttpCode(200)
   @Post('login')
   async login(
     @Body() body: LoginDto,

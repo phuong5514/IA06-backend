@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
+import 'dotenv/config';
 
 describe('Super Admin Bootstrap (e2e)', () => {
   let app: INestApplication<App>;
@@ -25,7 +26,7 @@ describe('Super Admin Bootstrap (e2e)', () => {
     // Email: superadmin@example.com, Password: SuperAdmin123!
 
     const loginResponse = await request(app.getHttpServer())
-      .post('/api/auth/login')
+      .post('/auth/login')
       .send({
         email: 'superadmin@example.com',
         password: 'SuperAdmin123!',

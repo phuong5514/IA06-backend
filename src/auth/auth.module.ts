@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { AuthController } from './auth.controller';
 import { RegistrationService } from './registration.service';
+import { UserService } from '../app.service';
 import 'dotenv/config';
 
 // Validate required environment variables in production
@@ -62,7 +63,7 @@ const JWT_ACCESS_SECRET =
       signOptions: { expiresIn: '15m' },
     }),
   ],
-  providers: [AuthService, JwtStrategy, RegistrationService],
+  providers: [AuthService, JwtStrategy, RegistrationService, UserService],
   controllers: [AuthController],
   exports: [AuthService, JwtStrategy, PassportModule, RegistrationService],
 })

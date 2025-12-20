@@ -182,3 +182,41 @@ export const menuItemImages = pgTable('menu_item_images', {
 
 export type MenuItemImage = typeof menuItemImages.$inferSelect;
 export type NewMenuItemImage = typeof menuItemImages.$inferInsert;
+
+// Modifier Groups
+export const modifierGroups = pgTable('modifier_groups', {
+  id: serial('id').primaryKey(),
+  menu_item_id: integer('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  type: varchar('type', { length: 20 }).notNull(), // 'single' or 'multiple'
+  is_required: boolean('is_required').default(false).notNull(),
+  display_order: integer('display_order').default(0).notNull(),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type ModifierGroup = typeof modifierGroups.$inferSelect;
+export type NewModifierGroup = typeof modifierGroups.$inferInsert;
+
+// Modifier Options
+export const modifierOptions = pgTable('modifier_options', {
+  id: serial('id').primaryKey(),
+  modifier_group_id: integer('modifier_group_id').notNull().references(() => modifierGroups.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  price_adjustment: decimal('price_adjustment', { precision: 10, scale: 2 }).default('0.00').notNull(),
+  display_order: integer('display_order').default(0).notNull(),
+  is_available: boolean('is_available').default(true).notNull(),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type ModifierOption = typeof modifierOptions.$inferSelect;
+export type NewModifierOption = typeof modifierOptions.$inferInsert;

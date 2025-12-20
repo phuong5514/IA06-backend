@@ -19,7 +19,7 @@ describe('RBAC Enforcement (e2e)', () => {
 
     // Login as admin to get admin token
     const adminLoginResponse = await request(app.getHttpServer())
-      .post('/login')
+      .post('/auth/login')
       .send({
         email: 'admin@test.com',
         password: 'Admin123!',
