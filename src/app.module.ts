@@ -6,9 +6,16 @@ import { AuthService } from './auth/auth.service';
 import { UsersModule } from './users/users.module';
 import { TablesModule } from './tables/tables.module';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
+import { MenuModule } from './menu/menu.module';
 
 @Module({
-  imports: [InfrastructureModule, AuthModule, UsersModule, TablesModule],
+  imports: [
+    InfrastructureModule,
+    AuthModule,
+    UsersModule,
+    TablesModule,
+    MenuModule,
+  ],
   controllers: [AppController],
   providers: [AppService, UserService],
 })

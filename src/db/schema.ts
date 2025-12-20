@@ -122,3 +122,21 @@ export const tables = pgTable('tables', {
 
 export type Table = typeof tables.$inferSelect;
 export type NewTable = typeof tables.$inferInsert;
+
+// Menu Categories
+export const menuCategories = pgTable('menu_categories', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  description: text('description'),
+  display_order: integer('display_order').default(0).notNull(),
+  is_active: boolean('is_active').default(true).notNull(),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type MenuCategory = typeof menuCategories.$inferSelect;
+export type NewMenuCategory = typeof menuCategories.$inferInsert;
