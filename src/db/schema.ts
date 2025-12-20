@@ -7,6 +7,8 @@ import {
   timestamp,
   uuid,
   text,
+  decimal,
+  pgEnum,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -140,3 +142,43 @@ export const menuCategories = pgTable('menu_categories', {
 
 export type MenuCategory = typeof menuCategories.$inferSelect;
 export type NewMenuCategory = typeof menuCategories.$inferInsert;
+
+// Menu Items
+export const menuItems = pgTable('menu_items', {
+  id: serial('id').primaryKey(),
+  category_id: integer('category_id').notNull().references(() => menuCategories.id, { onDelete: 'restrict' }),
+  name: varchar('name', { length: 200 }).notNull(),
+  description: text('description'),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  image_url: varchar('image_url', { length: 500 }),
+  dietary_tags: text('dietary_tags').array(),
+  is_available: boolean('is_available').default(true).notNull(),
+  display_order: integer('display_order').default(0).notNull(),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  deleted_at: timestamp('deleted_at', { mode: 'string' }),
+});
+
+export type MenuItem = typeof menuItems.$inferSelect;
+export type NewMenuItem = typeof menuItems.$inferInsert;
+
+// Menu Item Images
+export const menuItemImages = pgTable('menu_item_images', {
+  id: serial('id').primaryKey(),
+  menu_item_id: integer('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  original_url: varchar('original_url', { length: 500 }).notNull(),
+  thumbnail_url: varchar('thumbnail_url', { length: 500 }).notNull(),
+  display_url: varchar('display_url', { length: 500 }).notNull(),
+  file_size: integer('file_size').notNull(),
+  format: varchar('format', { length: 10 }).notNull(),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type MenuItemImage = typeof menuItemImages.$inferSelect;
+export type NewMenuItemImage = typeof menuItemImages.$inferInsert;
