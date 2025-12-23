@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import {
@@ -20,27 +21,28 @@ import {
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@Controller('api/users')
+@Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('staff')
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @HttpCode(HttpStatus.CREATED)
-  async createStaff(@Body() createStaffDto: CreateStaffDto) {
-    return this.usersService.createStaff(createStaffDto);
+  async createStaff(@Body() createStaffDto: CreateStaffDto, @Req() req: any) {
+    const currentUserRole = req.user.role;
+    return this.usersService.createStaff(createStaffDto, currentUserRole);
   }
 
   @Get('staff')
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   async listStaff(@Query('include_inactive') includeInactive?: string) {
     const includeInactiveBool = includeInactive === 'true';
     return this.usersService.listStaff(includeInactiveBool);
   }
 
   @Patch('staff/:id/deactivate')
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @HttpCode(HttpStatus.OK)
   async deactivateStaff(
     @Param('id') userId: string,
@@ -50,19 +52,21 @@ export class UsersController {
   }
 
   @Patch('staff/:id/activate')
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @HttpCode(HttpStatus.OK)
   async activateStaff(@Param('id') userId: string) {
     return this.usersService.activateStaff(userId);
   }
 
   @Put('staff/:id')
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @HttpCode(HttpStatus.OK)
   async updateStaff(
     @Param('id') userId: string,
     @Body() updateStaffDto: UpdateStaffDto,
+    @Req() req: any,
   ) {
-    return this.usersService.updateStaff(userId, updateStaffDto);
+    const currentUserRole = req.user.role;
+    return this.usersService.updateStaff(userId, updateStaffDto, currentUserRole);
   }
 }

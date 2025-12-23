@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and } from 'drizzle-orm';
@@ -19,7 +20,7 @@ export class UsersService {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
-  async createStaff(createStaffDto: CreateStaffDto) {
+  async createStaff(createStaffDto: CreateStaffDto, currentUserRole: string) {
     // Check if email already exists
     const existingUser = await this.db
       .select()
@@ -35,6 +36,13 @@ export class UsersService {
     if ((createStaffDto.role as string) === 'customer') {
       throw new BadRequestException(
         'Cannot create customer accounts via staff endpoint',
+      );
+    }
+
+    // Check if current user can create the requested role
+    if (createStaffDto.role === 'admin' && currentUserRole !== 'super_admin') {
+      throw new ForbiddenException(
+        'Only super administrators can create admin accounts',
       );
     }
 
@@ -148,7 +156,7 @@ export class UsersService {
     return userWithoutPassword;
   }
 
-  async updateStaff(userId: string, updateStaffDto: UpdateStaffDto) {
+  async updateStaff(userId: string, updateStaffDto: UpdateStaffDto, currentUserRole: string) {
     const [user] = await this.db
       .select()
       .from(users)
@@ -157,6 +165,13 @@ export class UsersService {
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    // Check if current user can update to the requested role
+    if (updateStaffDto.role === 'admin' && currentUserRole !== 'super_admin') {
+      throw new ForbiddenException(
+        'Only super administrators can assign admin role',
+      );
     }
 
     const [updated] = await this.db

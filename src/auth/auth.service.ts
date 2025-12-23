@@ -118,6 +118,12 @@ export class AuthService {
 
       const dbToken = tokens[0];
 
+      // Verify the token hash
+      const isValidHash = await bcrypt.compare(refreshToken, dbToken.tokenHash);
+      if (!isValidHash) {
+        return null;
+      }
+
       // Check if token is revoked or expired
       if (dbToken.revoked || new Date(dbToken.expiresAt) < new Date()) {
         return null;
