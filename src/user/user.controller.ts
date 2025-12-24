@@ -22,7 +22,8 @@ import { RegistrationService } from '../auth/registration.service';
 export class UserController {
   constructor(
     private readonly userService: UserService,
-    @Inject(RegistrationService) private readonly registrationService: RegistrationService,
+    @Inject(RegistrationService)
+    private readonly registrationService: RegistrationService,
   ) {}
 
   @Post('register')
@@ -89,13 +90,13 @@ export class UserController {
   ) {
     const refreshToken =
       (req.cookies?.refreshToken as string) || body.refreshToken;
-    
+
     if (!refreshToken) {
       return { success: false, message: 'No refresh token provided' };
     }
 
     const result = await this.userService.refreshToken(refreshToken);
-    
+
     if (result.success && result.refreshToken) {
       const isProduction = process.env.NODE_ENV === 'production';
       res.cookie('refreshToken', result.refreshToken, {
@@ -132,7 +133,7 @@ export class UserController {
     }
 
     const result = await this.userService.logout(refreshToken);
-    
+
     if (result.success) {
       res.clearCookie('refreshToken', { path: '/' });
     }

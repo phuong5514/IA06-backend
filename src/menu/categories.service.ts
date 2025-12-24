@@ -5,7 +5,12 @@ import {
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, asc, sql } from 'drizzle-orm';
-import { menuCategories, MenuCategory, NewMenuCategory } from '../db/schema';
+import {
+  menuCategories,
+  MenuCategory,
+  NewMenuCategory,
+  menuItems,
+} from '../db/schema';
 import 'dotenv/config';
 
 @Injectable()
@@ -67,8 +72,18 @@ export class CategoriesService {
   }
 
   async delete(id: number): Promise<void> {
-    // Check if category has items (we'll need to check menu_items table later)
-    // For now, just delete if exists
+    // Check if category has any menu items
+    const itemsCount = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(menuItems)
+      .where(eq(menuItems.category_id, id));
+
+    if (itemsCount[0].count > 0) {
+      throw new ConflictException(
+        `Cannot delete category with ID ${id} because it contains ${itemsCount[0].count} menu item(s). Please reassign or delete the items first.`,
+      );
+    }
+
     const result = await this.db
       .delete(menuCategories)
       .where(eq(menuCategories.id, id));

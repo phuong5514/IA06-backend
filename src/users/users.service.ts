@@ -156,7 +156,11 @@ export class UsersService {
     return userWithoutPassword;
   }
 
-  async updateStaff(userId: string, updateStaffDto: UpdateStaffDto, currentUserRole: string) {
+  async updateStaff(
+    userId: string,
+    updateStaffDto: UpdateStaffDto,
+    currentUserRole: string,
+  ) {
     const [user] = await this.db
       .select()
       .from(users)

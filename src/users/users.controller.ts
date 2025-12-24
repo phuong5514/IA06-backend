@@ -67,6 +67,10 @@ export class UsersController {
     @Req() req: any,
   ) {
     const currentUserRole = req.user.role;
-    return this.usersService.updateStaff(userId, updateStaffDto, currentUserRole);
+    return this.usersService.updateStaff(
+      userId,
+      updateStaffDto,
+      currentUserRole,
+    );
   }
 }
