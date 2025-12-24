@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq, and, asc, desc, sql } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, isNull } from 'drizzle-orm';
 import {
   menuItems,
   menuItemImages,
@@ -31,19 +31,18 @@ export class ItemsService {
     categoryId?: number,
     availableOnly: boolean = true,
   ): Promise<MenuItem[]> {
-    const query = this.db
+    return await this.db
       .select()
       .from(menuItems)
       .where(
         and(
-          eq(menuItems.deleted_at, null),
+          isNull(menuItems.deleted_at),
           availableOnly ? eq(menuItems.is_available, true) : undefined,
           categoryId ? eq(menuItems.category_id, categoryId) : undefined,
         ),
       )
-      .orderBy(asc(menuItems.display_order), asc(menuItems.name));
-
-    return query;
+      .orderBy(asc(menuItems.display_order), asc(menuItems.name))
+      .execute();
   }
 
   async create(data: NewMenuItem): Promise<MenuItem> {
@@ -56,7 +55,8 @@ export class ItemsService {
     const [item] = await this.db
       .select()
       .from(menuItems)
-      .where(and(eq(menuItems.id, id), eq(menuItems.deleted_at, null)));
+      .where(and(eq(menuItems.id, id), isNull(menuItems.deleted_at)))
+      .execute();
 
     if (!item) {
       throw new NotFoundException('Menu item not found');
@@ -67,7 +67,8 @@ export class ItemsService {
       .select()
       .from(menuItemImages)
       .where(eq(menuItemImages.menu_item_id, id))
-      .orderBy(desc(menuItemImages.created_at));
+      .orderBy(desc(menuItemImages.created_at))
+      .execute();
 
     return { ...item, images };
   }
@@ -76,7 +77,7 @@ export class ItemsService {
     const [item] = await this.db
       .update(menuItems)
       .set({ ...data, updated_at: sql`now()` })
-      .where(and(eq(menuItems.id, id), eq(menuItems.deleted_at, null)))
+      .where(and(eq(menuItems.id, id), isNull(menuItems.deleted_at)))
       .returning();
 
     if (!item) {
@@ -90,7 +91,7 @@ export class ItemsService {
     const result = await this.db
       .update(menuItems)
       .set({ deleted_at: sql`now()` })
-      .where(and(eq(menuItems.id, id), eq(menuItems.deleted_at, null)));
+      .where(and(eq(menuItems.id, id), isNull(menuItems.deleted_at)));
 
     if (result.rowCount === 0) {
       throw new NotFoundException('Menu item not found');
@@ -105,7 +106,8 @@ export class ItemsService {
     const [item] = await this.db
       .select()
       .from(menuItems)
-      .where(and(eq(menuItems.id, menuItemId), eq(menuItems.deleted_at, null)));
+      .where(and(eq(menuItems.id, menuItemId), isNull(menuItems.deleted_at)))
+      .execute();
 
     if (!item) {
       throw new NotFoundException('Menu item not found');

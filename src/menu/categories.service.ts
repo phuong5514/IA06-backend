@@ -22,18 +22,20 @@ export class CategoriesService {
   }
 
   async findAll(): Promise<MenuCategory[]> {
-    return this.db
+    return await this.db
       .select()
       .from(menuCategories)
       .where(eq(menuCategories.is_active, true))
-      .orderBy(asc(menuCategories.display_order), asc(menuCategories.name));
+      .orderBy(asc(menuCategories.display_order), asc(menuCategories.name))
+      .execute();
   }
 
   async findOne(id: number): Promise<MenuCategory> {
     const [category] = await this.db
       .select()
       .from(menuCategories)
-      .where(eq(menuCategories.id, id));
+      .where(eq(menuCategories.id, id))
+      .execute();
 
     if (!category) {
       throw new NotFoundException(`Category with ID ${id} not found`);
