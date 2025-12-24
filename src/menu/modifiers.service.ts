@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq, and, asc, sql } from 'drizzle-orm';
+import { eq, and, asc, sql, inArray } from 'drizzle-orm';
 import {
   modifierGroups,
   modifierOptions,
@@ -14,6 +14,8 @@ import {
   NewModifierOption,
 } from '../db/schema';
 import 'dotenv/config';
+
+type ModifierGroupWithOptions = ModifierGroup & { options: ModifierOption[] };
 
 @Injectable()
 export class ModifiersService {
@@ -44,12 +46,39 @@ export class ModifiersService {
     return group;
   }
 
-  async findGroupsByItem(menuItemId: number): Promise<ModifierGroup[]> {
-    return this.db
+  async findGroupsByItem(menuItemId: number): Promise<ModifierGroupWithOptions[]> {
+    const groups = await this.db
       .select()
       .from(modifierGroups)
       .where(eq(modifierGroups.menu_item_id, menuItemId))
       .orderBy(asc(modifierGroups.display_order), asc(modifierGroups.name));
+
+    // Fetch options for all groups
+    const groupIds = groups.map(g => g.id);
+    if (groupIds.length > 0) {
+      const options = await this.db
+        .select()
+        .from(modifierOptions)
+        .where(inArray(modifierOptions.modifier_group_id, groupIds))
+        .orderBy(asc(modifierOptions.display_order), asc(modifierOptions.name));
+
+      // Group options by modifier_group_id
+      const optionsByGroup = options.reduce((acc, option) => {
+        if (!acc[option.modifier_group_id]) {
+          acc[option.modifier_group_id] = [];
+        }
+        acc[option.modifier_group_id].push(option);
+        return acc;
+      }, {} as Record<number, ModifierOption[]>);
+
+      // Attach options to groups
+      return groups.map(group => ({
+        ...group,
+        options: optionsByGroup[group.id] || [],
+      }));
+    }
+
+    return groups.map(group => ({ ...group, options: [] }));
   }
 
   async createGroup(data: NewModifierGroup): Promise<ModifierGroup> {
