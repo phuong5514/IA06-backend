@@ -3,94 +3,88 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
 import { ItemsService } from './items.service';
+import { GcsService } from './gcs.service';
 
 @Injectable()
 export class ImageService {
-  private readonly uploadDir = 'uploads';
   private readonly thumbnailSize = 300;
   private readonly displaySize = 800;
 
-  constructor(private readonly itemsService: ItemsService) {}
+  constructor(
+    private readonly itemsService: ItemsService,
+    private readonly gcsService: GcsService,
+  ) {}
 
-  async processAndSaveImage(
-    menuItemId: number,
-    file: Express.Multer.File,
-  ): Promise<any> {
-    // Validate file type
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('File must be an image');
-    }
-
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      throw new BadRequestException('File size must be less than 5MB');
-    }
-
-    // Create upload directory if it doesn't exist
-    await fs.mkdir(this.uploadDir, { recursive: true });
-
+  async generateUploadUrl(fileName: string, contentType: string): Promise<{ signedUrl: string; fileName: string }> {
     // Generate unique filename
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
-    const extension = path.extname(file.originalname);
-    const baseName = `${timestamp}_${random}`;
+    const extension = path.extname(fileName);
+    const baseName = `menu_items/${timestamp}_${random}${extension}`;
 
-    const originalPath = path.join(
-      this.uploadDir,
-      `${baseName}_original${extension}`,
-    );
-    const thumbnailPath = path.join(
-      this.uploadDir,
-      `${baseName}_thumbnail.jpg`,
-    );
-    const displayPath = path.join(this.uploadDir, `${baseName}_display.jpg`);
+    const signedUrl = await this.gcsService.generateSignedUploadUrl(baseName, contentType);
 
+    return {
+      signedUrl,
+      fileName: baseName,
+    };
+  }
+
+  async confirmImageUpload(menuItemId: number, gcsFileName: string): Promise<any> {
     try {
-      // Save original file
-      await fs.writeFile(originalPath, file.buffer);
+      // Download image from GCS for processing
+      const bucket = this.gcsService['storage'].bucket(this.gcsService['bucketName']);
+      const file = bucket.file(gcsFileName);
+      const [buffer] = await file.download();
 
       // Process images with Sharp
-      const sharpInstance = sharp(file.buffer);
+      const sharpInstance = sharp(buffer);
+
+      // Get image metadata
+      const metadata = await sharpInstance.metadata();
+
+      // Generate processed filenames
+      const baseName = path.parse(gcsFileName).name;
+      const thumbnailName = `menu_items/${baseName}_thumbnail.jpg`;
+      const displayName = `menu_items/${baseName}_display.jpg`;
 
       // Create thumbnail (300x300, cropped)
-      await sharpInstance
+      const thumbnailBuffer = await sharpInstance
         .resize(this.thumbnailSize, this.thumbnailSize, {
           fit: 'cover',
           position: 'center',
         })
         .jpeg({ quality: 80 })
-        .toFile(thumbnailPath);
+        .toBuffer();
 
       // Create display image (800x800, contain)
-      await sharpInstance
+      const displayBuffer = await sharpInstance
         .resize(this.displaySize, this.displaySize, {
           fit: 'inside',
           withoutEnlargement: true,
         })
         .jpeg({ quality: 85 })
-        .toFile(displayPath);
+        .toBuffer();
 
-      // Determine format
-      const format = extension.substring(1).toLowerCase();
-      const allowedFormats = ['jpeg', 'jpg', 'png', 'webp'];
-      const normalizedFormat = allowedFormats.includes(format)
-        ? format
-        : 'jpeg';
+      // Upload processed images to GCS
+      const thumbnailFile = bucket.file(thumbnailName);
+      const displayFile = bucket.file(displayName);
+
+      await Promise.all([
+        thumbnailFile.save(thumbnailBuffer, { contentType: 'image/jpeg' }),
+        displayFile.save(displayBuffer, { contentType: 'image/jpeg' }),
+      ]);
 
       // Save to database
       const imageData = {
-        original_url: `/${originalPath}`,
-        thumbnail_url: `/${thumbnailPath}`,
-        display_url: `/${displayPath}`,
-        file_size: file.size,
-        format: normalizedFormat,
+        original_url: this.gcsService.getPublicUrl(gcsFileName),
+        thumbnail_url: this.gcsService.getPublicUrl(thumbnailName),
+        display_url: this.gcsService.getPublicUrl(displayName),
+        file_size: buffer.length,
+        format: metadata.format || 'jpeg',
       };
 
-      const savedImage = await this.itemsService.addImage(
-        menuItemId,
-        imageData,
-      );
+      const savedImage = await this.itemsService.addImage(menuItemId, imageData);
 
       return {
         id: savedImage.id,
@@ -101,19 +95,10 @@ export class ImageService {
         },
       };
     } catch (error) {
-      // Clean up files on error
-      await this.cleanupFiles([originalPath, thumbnailPath, displayPath]);
-      throw new BadRequestException('Failed to process image');
+      console.error('Failed to process image from GCS:', error);
+      throw new BadRequestException('Failed to process uploaded image');
     }
   }
 
-  private async cleanupFiles(filePaths: string[]): Promise<void> {
-    for (const filePath of filePaths) {
-      try {
-        await fs.unlink(filePath);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
-  }
+
 }

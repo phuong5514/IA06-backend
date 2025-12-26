@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ItemsService } from './items.service';
 import { ImageService } from './image.service';
+import { GcsService } from './gcs.service';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MenuItem } from '../db/schema';
@@ -24,6 +25,7 @@ export class ItemsController {
   constructor(
     private readonly itemsService: ItemsService,
     private readonly imageService: ImageService,
+    private readonly gcsService: GcsService,
   ) {}
 
   @Get()
@@ -68,14 +70,23 @@ export class ItemsController {
     return this.itemsService.remove(id);
   }
 
-  @Post(':id/image')
+  @Post(':id/image/upload-url')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
-  @UseInterceptors(FileInterceptor('image'))
-  async uploadImage(
+  async getUploadUrl(
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { fileName: string; contentType: string },
   ) {
-    return this.imageService.processAndSaveImage(id, file);
+    return this.imageService.generateUploadUrl(body.fileName, body.contentType);
+  }
+
+  @Post(':id/image/confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
+  async confirmImageUpload(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { gcsFileName: string },
+  ) {
+    return this.imageService.confirmImageUpload(id, body.gcsFileName);
   }
 }
