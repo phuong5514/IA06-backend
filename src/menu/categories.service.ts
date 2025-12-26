@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq, and, asc, sql } from 'drizzle-orm';
+import { eq, and, asc, sql, isNull } from 'drizzle-orm';
 import {
   menuCategories,
   MenuCategory,
@@ -74,18 +74,22 @@ export class CategoriesService {
   }
 
   async delete(id: number): Promise<void> {
-    // Check if category has any menu items
-    const itemsCount = await this.db
+    // Check if category has any active menu items (not soft deleted)
+    const activeItemsCount = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(menuItems)
-      .where(eq(menuItems.category_id, id));
+      .where(and(eq(menuItems.category_id, id), isNull(menuItems.deleted_at)));
 
-    if (itemsCount[0].count > 0) {
+    if (activeItemsCount[0].count > 0) {
       throw new ConflictException(
-        `Cannot delete category with ID ${id} because it contains ${itemsCount[0].count} menu item(s). Please reassign or delete the items first.`,
+        `Cannot delete category with ID ${id} because it contains ${activeItemsCount[0].count} active menu item(s). Please reassign or delete the items first.`,
       );
     }
 
+    // Delete all items in the category permanently
+    await this.db.delete(menuItems).where(eq(menuItems.category_id, id));
+
+    // Delete the category
     const result = await this.db
       .delete(menuCategories)
       .where(eq(menuCategories.id, id));
