@@ -110,6 +110,7 @@ export const tables = pgTable('tables', {
   table_number: varchar('table_number', { length: 50 }).notNull().unique(),
   capacity: integer('capacity').notNull().default(4),
   location: varchar('location', { length: 200 }),
+  description: text('description'),
   is_active: boolean('is_active').notNull().default(true),
   qr_token: text('qr_token'),
   qr_generated_at: timestamp('qr_generated_at', { mode: 'string' }),
@@ -152,7 +153,7 @@ export const menuItems = pgTable('menu_items', {
   name: varchar('name', { length: 200 }).notNull(),
   description: text('description'),
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
-  image_url: varchar('image_url', { length: 500 }),
+  image_url: text('image_url'),
   dietary_tags: text('dietary_tags').array(),
   is_available: boolean('is_available').default(true).notNull(),
   display_order: integer('display_order').default(0).notNull(),
@@ -174,9 +175,9 @@ export const menuItemImages = pgTable('menu_item_images', {
   menu_item_id: integer('menu_item_id')
     .notNull()
     .references(() => menuItems.id, { onDelete: 'cascade' }),
-  original_url: varchar('original_url', { length: 500 }).notNull(),
-  thumbnail_url: varchar('thumbnail_url', { length: 500 }).notNull(),
-  display_url: varchar('display_url', { length: 500 }).notNull(),
+  original_url: text('original_url').notNull(),
+  thumbnail_url: text('thumbnail_url').notNull(),
+  display_url: text('display_url').notNull(),
   file_size: integer('file_size').notNull(),
   format: varchar('format', { length: 10 }).notNull(),
   created_at: timestamp('created_at', { mode: 'string' })

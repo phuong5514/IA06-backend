@@ -3,7 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
+import * as QRCode from 'qrcode';
+import * as PDFKit from 'pdfkit';
+import * as archiver from 'archiver';
 import { db } from '../db';
 import { tables } from '../db/schema';
 import { QrService } from './qr.service';
@@ -11,6 +14,187 @@ import { QrService } from './qr.service';
 @Injectable()
 export class TablesService {
   constructor(private readonly qrService: QrService) {}
+
+  /**
+   * Create a new table
+   */
+  async createTable(data: {
+    table_number: string;
+    capacity: number;
+    location?: string;
+    description?: string;
+  }) {
+    // Validate capacity
+    if (data.capacity < 1 || data.capacity > 20) {
+      throw new BadRequestException('Capacity must be between 1 and 20');
+    }
+
+    // Check if table number already exists
+    const existing = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.table_number, data.table_number))
+      .limit(1);
+
+    if (existing.length > 0) {
+      throw new BadRequestException('Table number already exists');
+    }
+
+    const [newTable] = await db
+      .insert(tables)
+      .values({
+        table_number: data.table_number,
+        capacity: data.capacity,
+        location: data.location,
+        description: data.description,
+        is_active: true,
+      })
+      .returning();
+
+    return newTable;
+  }
+
+  /**
+   * Get all tables with optional filters
+   */
+  async getTables(filters?: {
+    status?: 'active' | 'inactive';
+    location?: string;
+    search?: string;
+    sortBy?: 'table_number' | 'capacity' | 'created_at';
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const conditions = [];
+
+    // Apply filters
+    if (filters?.status) {
+      conditions.push(eq(tables.is_active, filters.status === 'active'));
+    }
+
+    if (filters?.location) {
+      conditions.push(eq(tables.location, filters.location));
+    }
+
+    if (filters?.search) {
+      conditions.push(
+        or(
+          like(tables.table_number, `%${filters.search}%`),
+          like(tables.location, `%${filters.search}%`),
+          like(tables.description, `%${filters.search}%`)
+        )
+      );
+    }
+
+    // Apply sorting
+    const sortBy = filters?.sortBy || 'table_number';
+    const sortOrder = filters?.sortOrder || 'asc';
+
+    let orderByColumn;
+    switch (sortBy) {
+      case 'capacity':
+        orderByColumn = tables.capacity;
+        break;
+      case 'created_at':
+        orderByColumn = tables.created_at;
+        break;
+      default:
+        orderByColumn = tables.table_number;
+    }
+
+    const query = db
+      .select()
+      .from(tables)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(sortOrder === 'desc' ? desc(orderByColumn) : asc(orderByColumn));
+
+    return query;
+  }
+
+  /**
+   * Get a single table by ID
+   */
+  async getTableById(id: number) {
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, id))
+      .limit(1);
+
+    if (!table) {
+      throw new NotFoundException('Table not found');
+    }
+
+    return table;
+  }
+
+  /**
+   * Update a table
+   */
+  async updateTable(id: number, data: {
+    table_number?: string;
+    capacity?: number;
+    location?: string;
+    description?: string;
+  }) {
+    // Check if table exists
+    const existing = await this.getTableById(id);
+
+    // Validate capacity if provided
+    if (data.capacity !== undefined && (data.capacity < 1 || data.capacity > 20)) {
+      throw new BadRequestException('Capacity must be between 1 and 20');
+    }
+
+    // Check table number uniqueness if changing
+    if (data.table_number && data.table_number !== existing.table_number) {
+      const duplicate = await db
+        .select()
+        .from(tables)
+        .where(eq(tables.table_number, data.table_number))
+        .limit(1);
+
+      if (duplicate.length > 0) {
+        throw new BadRequestException('Table number already exists');
+      }
+    }
+
+    const [updatedTable] = await db
+      .update(tables)
+      .set({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .where(eq(tables.id, id))
+      .returning();
+
+    return updatedTable;
+  }
+
+  /**
+   * Update table status (activate/deactivate)
+   */
+  async updateTableStatus(id: number, isActive: boolean) {
+    const [updatedTable] = await db
+      .update(tables)
+      .set({
+        is_active: isActive,
+        updated_at: new Date().toISOString(),
+      })
+      .where(eq(tables.id, id))
+      .returning();
+
+    if (!updatedTable) {
+      throw new NotFoundException('Table not found');
+    }
+
+    return updatedTable;
+  }
+
+  /**
+   * Delete a table (soft delete by deactivating)
+   */
+  async deleteTable(id: number) {
+    return this.updateTableStatus(id, false);
+  }
 
   /**
    * Verify a QR token and return table information with menu URL
@@ -105,5 +289,129 @@ export class TablesService {
       qr_token,
       expires_at,
     };
+  }
+
+  /**
+   * Generate QR code image as data URL
+   */
+  async generateQrCodeImage(qrToken: string): Promise<string> {
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const menuUrl = `${baseUrl}/menu?qr=${qrToken}`;
+
+    return QRCode.toDataURL(menuUrl, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF',
+      },
+    });
+  }
+
+  /**
+   * Generate QR code PDF
+   */
+  async generateQrCodePdf(table: any): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const doc = new PDFKit({
+          size: 'A4',
+          margin: 50,
+        });
+
+        const buffers: Buffer[] = [];
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+
+        // Title
+        doc.fontSize(24).text('Smart Restaurant', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(18).text(`Table ${table.table_number}`, { align: 'center' });
+        doc.moveDown();
+
+        // Table info
+        doc.fontSize(12);
+        doc.text(`Capacity: ${table.capacity} seats`);
+        if (table.location) {
+          doc.text(`Location: ${table.location}`);
+        }
+        doc.moveDown();
+
+        // Instructions
+        doc.fontSize(14).text('Scan QR Code to Order', { align: 'center' });
+        doc.moveDown(2);
+
+        // Generate QR code
+        const qrToken = table.qr_token;
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const menuUrl = `${baseUrl}/menu?qr=${qrToken}`;
+
+        const qrDataUrl = await QRCode.toDataURL(menuUrl, {
+          width: 200,
+          margin: 2,
+        });
+
+        // Convert data URL to buffer
+        const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
+        const qrBuffer = Buffer.from(base64Data, 'base64');
+
+        // Position QR code in center
+        const qrSize = 200;
+        const pageWidth = doc.page.width;
+        const pageHeight = doc.page.height;
+        const x = (pageWidth - qrSize) / 2;
+        const y = (pageHeight - qrSize) / 2 - 50;
+
+        // Add QR code image
+        doc.image(qrBuffer, x, y, { width: qrSize, height: qrSize });
+
+        // Footer
+        doc.moveDown(5);
+        doc.fontSize(8).text('Generated on ' + new Date().toLocaleDateString(), {
+          align: 'center',
+        });
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Generate ZIP file with all QR codes
+   */
+  async generateAllQrCodesZip(): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
+      const archive = archiver('zip', {
+        zlib: { level: 9 },
+      });
+
+      const buffers: Buffer[] = [];
+      archive.on('data', buffers.push.bind(buffers));
+      archive.on('end', () => resolve(Buffer.concat(buffers)));
+      archive.on('error', reject);
+
+      // Get all active tables with QR tokens
+      const allTables = await db
+        .select()
+        .from(tables)
+        .where(and(eq(tables.is_active, true), sql`${tables.qr_token} IS NOT NULL`));
+
+      for (const table of allTables) {
+        try {
+          const qrDataUrl = await this.generateQrCodeImage(table.qr_token!);
+          const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+
+          archive.append(buffer, { name: `table-${table.table_number}-qr.png` });
+        } catch (error) {
+          console.error(`Failed to generate QR for table ${table.id}:`, error);
+        }
+      }
+
+      archive.finalize();
+    });
   }
 }
