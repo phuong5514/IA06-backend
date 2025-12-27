@@ -6,7 +6,7 @@ import {
 import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
 import * as QRCode from 'qrcode';
 import * as PDFKit from 'pdfkit';
-import * as archiver from 'archiver';
+import archiver from 'archiver';
 import { db } from '../db';
 import { tables } from '../db/schema';
 import { QrService } from './qr.service';
@@ -393,15 +393,33 @@ export class TablesService {
       archive.on('end', () => resolve(Buffer.concat(buffers)));
       archive.on('error', reject);
 
-      // Get all active tables with QR tokens
+      // Get all active tables
       const allTables = await db
         .select()
         .from(tables)
-        .where(and(eq(tables.is_active, true), sql`${tables.qr_token} IS NOT NULL`));
+        .where(eq(tables.is_active, true));
 
       for (const table of allTables) {
         try {
-          const qrDataUrl = await this.generateQrCodeImage(table.qr_token!);
+          let qrToken = table.qr_token;
+          if (!qrToken) {
+            // Generate new QR token for tables that don't have one
+            const ttlSeconds = 60 * 60 * 24 * 365; // 1 year
+            qrToken = this.qrService.generateTableToken(table.id, ttlSeconds);
+            const expires_at = new Date(Date.now() + ttlSeconds * 1000);
+            // Update table with new QR token
+            await db
+              .update(tables)
+              .set({
+                qr_token: qrToken,
+                qr_generated_at: new Date().toISOString(),
+                qr_expires_at: expires_at.toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .where(eq(tables.id, table.id));
+          }
+
+          const qrDataUrl = await this.generateQrCodeImage(qrToken);
           const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
           const buffer = Buffer.from(base64Data, 'base64');
 
