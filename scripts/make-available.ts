@@ -10,7 +10,7 @@ async function makeItemsAvailable() {
 
   const result = await db
     .update(menuItems)
-    .set({ is_available: true })
+    .set({ status: 'available' })
     .returning();
 
   console.log('Updated items:', result.length);

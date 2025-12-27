@@ -11,7 +11,7 @@ async function checkItems() {
   // Get all items
   const allItems = await db.select().from(menuItems).execute();
   console.log('All items:', allItems.length);
-  console.log('First few items:', allItems.slice(0, 3).map(item => ({ id: item.id, name: item.name, is_available: item.is_available, deleted_at: item.deleted_at })));
+  console.log('First few items:', allItems.slice(0, 3).map(item => ({ id: item.id, name: item.name, status: item.status, deleted_at: item.deleted_at })));
 
   // Get not deleted items
   const notDeletedItems = await db
@@ -25,7 +25,7 @@ async function checkItems() {
   const availableItems = await db
     .select()
     .from(menuItems)
-    .where(and(isNull(menuItems.deleted_at), eq(menuItems.is_available, true)))
+    .where(and(isNull(menuItems.deleted_at), eq(menuItems.status, 'available')))
     .execute();
   console.log('Available items:', availableItems.length);
 }

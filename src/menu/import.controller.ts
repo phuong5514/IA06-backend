@@ -173,7 +173,7 @@ export class ImportController {
               dietary_tags: record.item_dietary_tags
                 ? record.item_dietary_tags.split(';').map((t) => t.trim())
                 : [],
-              is_available: isAvailable,
+              status: isAvailable ? 'available' : 'unavailable',
               display_order: 0,
             });
             itemId = newItem.id;

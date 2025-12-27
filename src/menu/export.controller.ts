@@ -46,7 +46,7 @@ export class ExportController {
           item_price: item.price,
           item_image_url: item.image_url || '',
           item_dietary_tags: (item.dietary_tags || []).join(';'),
-          item_is_available: item.is_available,
+          item_is_available: item.status,
           modifier_group_name: '',
           modifier_group_type: '',
           modifier_option_name: '',

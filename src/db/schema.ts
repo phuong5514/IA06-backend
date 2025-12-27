@@ -12,6 +12,8 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+export const menuItemStatusEnum = pgEnum('menu_item_status', ['available', 'unavailable', 'sold_out']);
+
 export const users = pgTable('users', {
   id: uuid('id')
     .default(sql`gen_random_uuid()`)
@@ -155,8 +157,10 @@ export const menuItems = pgTable('menu_items', {
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
   image_url: text('image_url'),
   dietary_tags: text('dietary_tags').array(),
-  is_available: boolean('is_available').default(true).notNull(),
+  status: menuItemStatusEnum('status').notNull().default('available'),
   display_order: integer('display_order').default(0).notNull(),
+  preparation_time: integer('preparation_time'),
+  chef_recommendation: boolean('chef_recommendation'),
   created_at: timestamp('created_at', { mode: 'string' })
     .defaultNow()
     .notNull(),

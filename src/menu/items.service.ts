@@ -37,7 +37,7 @@ export class ItemsService {
       .where(
         and(
           isNull(menuItems.deleted_at),
-          availableOnly ? eq(menuItems.is_available, true) : undefined,
+          availableOnly ? eq(menuItems.status, 'available') : undefined,
           categoryId ? eq(menuItems.category_id, categoryId) : undefined,
         ),
       )

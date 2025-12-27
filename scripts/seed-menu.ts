@@ -24,7 +24,7 @@ async function seedMenu() {
       name: 'Caesar Salad',
       description: 'Crisp romaine lettuce with Caesar dressing',
       price: '8.99',
-      is_available: true,
+      status: 'available',
       display_order: 1,
     },
     {
@@ -32,7 +32,7 @@ async function seedMenu() {
       name: 'Chicken Wings',
       description: 'Spicy buffalo wings with blue cheese dip',
       price: '12.99',
-      is_available: true,
+      status: 'available',
       display_order: 2,
     },
     {
@@ -40,7 +40,7 @@ async function seedMenu() {
       name: 'Grilled Salmon',
       description: 'Fresh salmon with lemon herb sauce',
       price: '24.99',
-      is_available: true,
+      status: 'available',
       display_order: 1,
     },
     {
@@ -48,7 +48,7 @@ async function seedMenu() {
       name: 'Beef Burger',
       description: 'Juicy beef patty with all the fixings',
       price: '16.99',
-      is_available: true,
+      status: 'available',
       display_order: 2,
     },
     {
@@ -56,7 +56,7 @@ async function seedMenu() {
       name: 'Chocolate Cake',
       description: 'Rich chocolate cake with vanilla ice cream',
       price: '7.99',
-      is_available: true,
+      status: 'available',
       display_order: 1,
     },
     {
@@ -64,7 +64,7 @@ async function seedMenu() {
       name: 'Coca Cola',
       description: 'Classic cola drink',
       price: '2.99',
-      is_available: true,
+      status: 'available',
       display_order: 1,
     },
   ]).returning();
