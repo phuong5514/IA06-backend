@@ -8,10 +8,15 @@ export class GcsService {
 
   constructor() {
     this.bucketName = process.env.GCS_BUCKET_NAME || 'smart-restaurant-images';
-    this.storage = new Storage({
-      keyFilename: process.env.GCS_KEY_FILE,
+    const config: any = {
       projectId: process.env.GCS_PROJECT_ID,
-    });
+    };
+    if (process.env.GCS_KEY_JSON) {
+      config.credentials = JSON.parse(process.env.GCS_KEY_JSON);
+    } else {
+      config.keyFilename = process.env.GCS_KEY_FILE;
+    }
+    this.storage = new Storage(config);
   }
 
   async generateSignedUploadUrl(
