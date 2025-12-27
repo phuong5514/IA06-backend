@@ -31,14 +31,14 @@ export class TablesController {
   @Get()
   async getTables(
     @Query('status') status?: 'active' | 'inactive',
-    @Query('location') location?: string,
+    @Query('locationId') locationId?: string,
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: 'table_number' | 'capacity' | 'created_at',
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     const filters = {
       status,
-      location,
+      locationId: locationId ? parseInt(locationId) : undefined,
       search,
       sortBy,
       sortOrder,
@@ -64,7 +64,9 @@ export class TablesController {
   async createTable(@Body() data: {
     table_number: string;
     capacity: number;
-    location?: string;
+    location_id?: number;
+    position_x?: number;
+    position_y?: number;
     description?: string;
   }) {
     return this.tablesService.createTable(data);
@@ -80,7 +82,9 @@ export class TablesController {
     @Body() data: {
       table_number?: string;
       capacity?: number;
-      location?: string;
+      location_id?: number;
+      position_x?: number;
+      position_y?: number;
       description?: string;
     },
   ) {

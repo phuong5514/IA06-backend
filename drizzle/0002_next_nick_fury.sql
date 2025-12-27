@@ -1,0 +1,1 @@
+ALTER TABLE "tables" ADD COLUMN "location" varchar(200);

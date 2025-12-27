@@ -8,7 +8,7 @@ import * as QRCode from 'qrcode';
 import * as PDFKit from 'pdfkit';
 import archiver from 'archiver';
 import { db } from '../db';
-import { tables } from '../db/schema';
+import { tables, locations } from '../db/schema';
 import { QrService } from './qr.service';
 
 @Injectable()
@@ -21,7 +21,9 @@ export class TablesService {
   async createTable(data: {
     table_number: string;
     capacity: number;
-    location?: string;
+    location_id?: number;
+    position_x?: number;
+    position_y?: number;
     description?: string;
   }) {
     // Validate capacity
@@ -45,7 +47,9 @@ export class TablesService {
       .values({
         table_number: data.table_number,
         capacity: data.capacity,
-        location: data.location,
+        location_id: data.location_id || null,
+        position_x: data.position_x || null,
+        position_y: data.position_y || null,
         description: data.description,
         is_active: true,
       })
@@ -59,7 +63,7 @@ export class TablesService {
    */
   async getTables(filters?: {
     status?: 'active' | 'inactive';
-    location?: string;
+    locationId?: number;
     search?: string;
     sortBy?: 'table_number' | 'capacity' | 'created_at';
     sortOrder?: 'asc' | 'desc';
@@ -71,8 +75,8 @@ export class TablesService {
       conditions.push(eq(tables.is_active, filters.status === 'active'));
     }
 
-    if (filters?.location) {
-      conditions.push(eq(tables.location, filters.location));
+    if (filters?.locationId) {
+      conditions.push(eq(tables.location_id, filters.locationId));
     }
 
     if (filters?.search) {
@@ -102,8 +106,25 @@ export class TablesService {
     }
 
     const query = db
-      .select()
+      .select({
+        id: tables.id,
+        table_number: tables.table_number,
+        capacity: tables.capacity,
+        location: tables.location,
+        location_id: tables.location_id,
+        position_x: tables.position_x,
+        position_y: tables.position_y,
+        description: tables.description,
+        is_active: tables.is_active,
+        qr_token: tables.qr_token,
+        qr_generated_at: tables.qr_generated_at,
+        qr_expires_at: tables.qr_expires_at,
+        created_at: tables.created_at,
+        updated_at: tables.updated_at,
+        location_name: locations.name,
+      })
       .from(tables)
+      .leftJoin(locations, eq(tables.location_id, locations.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(sortOrder === 'desc' ? desc(orderByColumn) : asc(orderByColumn));
 
@@ -115,8 +136,25 @@ export class TablesService {
    */
   async getTableById(id: number) {
     const [table] = await db
-      .select()
+      .select({
+        id: tables.id,
+        table_number: tables.table_number,
+        capacity: tables.capacity,
+        location: tables.location,
+        location_id: tables.location_id,
+        position_x: tables.position_x,
+        position_y: tables.position_y,
+        description: tables.description,
+        is_active: tables.is_active,
+        qr_token: tables.qr_token,
+        qr_generated_at: tables.qr_generated_at,
+        qr_expires_at: tables.qr_expires_at,
+        created_at: tables.created_at,
+        updated_at: tables.updated_at,
+        location_name: locations.name,
+      })
       .from(tables)
+      .leftJoin(locations, eq(tables.location_id, locations.id))
       .where(eq(tables.id, id))
       .limit(1);
 
@@ -133,7 +171,9 @@ export class TablesService {
   async updateTable(id: number, data: {
     table_number?: string;
     capacity?: number;
-    location?: string;
+    location_id?: number;
+    position_x?: number;
+    position_y?: number;
     description?: string;
   }) {
     // Check if table exists
@@ -333,8 +373,8 @@ export class TablesService {
         // Table info
         doc.fontSize(12);
         doc.text(`Capacity: ${table.capacity} seats`);
-        if (table.location) {
-          doc.text(`Location: ${table.location}`);
+        if (table.location_name) {
+          doc.text(`Location: ${table.location_name}`);
         }
         doc.moveDown();
 

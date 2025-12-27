@@ -8,6 +8,7 @@ import { TablesModule } from './tables/tables.module';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
 import { MenuModule } from './menu/menu.module';
 import { UserModule } from './user/user.module';
+import { LocationsModule } from './locations/locations.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { UserModule } from './user/user.module';
     AuthModule,
     UsersModule,
     TablesModule,
+    LocationsModule,
     MenuModule,
     UserModule,
   ],

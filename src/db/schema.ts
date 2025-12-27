@@ -8,6 +8,7 @@ import {
   uuid,
   text,
   decimal,
+  jsonb,
   pgEnum,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -104,12 +105,32 @@ export const passwordResetTokensTable = pgTable('password_reset_tokens', {
     .notNull(),
 });
 
+// Locations
+export const locations = pgTable('locations', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  width: integer('width').notNull(), // Width of the location in pixels/units
+  height: integer('height').notNull(), // Height of the location in pixels/units
+  metadata: jsonb('metadata'), // JSON data for map layout, styling, etc.
+  position_x: integer('position_x').default(0), // Relative position to other locations
+  position_y: integer('position_y').default(0), // Relative position to other locations
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
 // Tables
 export const tables = pgTable('tables', {
   id: serial('id').primaryKey(),
   table_number: varchar('table_number', { length: 50 }).notNull().unique(),
   capacity: integer('capacity').notNull().default(4),
   location: varchar('location', { length: 200 }),
+  location_id: integer('location_id').references(() => locations.id, { onDelete: 'set null' }),
+  position_x: integer('position_x'), // X position within the location
+  position_y: integer('position_y'), // Y position within the location
   description: text('description'),
   is_active: boolean('is_active').notNull().default(true),
   qr_token: text('qr_token'),
@@ -122,6 +143,9 @@ export const tables = pgTable('tables', {
     .defaultNow()
     .notNull(),
 });
+
+export type Location = typeof locations.$inferSelect;
+export type NewLocation = typeof locations.$inferInsert;
 
 export type Table = typeof tables.$inferSelect;
 export type NewTable = typeof tables.$inferInsert;
