@@ -21,7 +21,8 @@ export class ExportController {
   async exportMenu(@Res() res: Response) {
     // Fetch all data
     const categories = await this.categoriesService.findAll();
-    const items = await this.itemsService.findAll(undefined, false); // Include unavailable items
+    const itemsResponse = await this.itemsService.findAll(undefined, false, undefined, undefined, 1, 10000); // Include unavailable items, get all
+    const items = itemsResponse.items;
     const modifiers = await this.modifiersService.findAllModifiers();
 
     // Prepare CSV data

@@ -30,19 +30,67 @@ export class ItemsService {
   async findAll(
     categoryId?: number,
     availableOnly: boolean = true,
-  ): Promise<MenuItem[]> {
-    return await this.db
+    sortBy?: string,
+    sortOrder?: string,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{ items: MenuItem[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit;
+
+    // Build where conditions
+    const whereConditions = [isNull(menuItems.deleted_at)];
+
+    if (availableOnly) {
+      whereConditions.push(eq(menuItems.status, 'available'));
+    }
+
+    if (categoryId) {
+      whereConditions.push(eq(menuItems.category_id, categoryId));
+    }
+
+    // Build order by
+    let orderBy;
+    if (sortBy) {
+      const isDesc = sortOrder === 'desc';
+      switch (sortBy) {
+        case 'name':
+          orderBy = isDesc ? desc(menuItems.name) : asc(menuItems.name);
+          break;
+        case 'price':
+          orderBy = isDesc ? desc(menuItems.price) : asc(menuItems.price);
+          break;
+        case 'created_at':
+          orderBy = isDesc ? desc(menuItems.created_at) : asc(menuItems.created_at);
+          break;
+        case 'display_order':
+        default:
+          orderBy = asc(menuItems.display_order);
+          break;
+      }
+    } else {
+      orderBy = asc(menuItems.display_order);
+    }
+
+    // Get total count
+    const totalResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(menuItems)
+      .where(and(...whereConditions))
+      .execute();
+
+    const total = totalResult[0]?.count || 0;
+
+    // Get paginated items
+    const items = await this.db
       .select()
       .from(menuItems)
-      .where(
-        and(
-          isNull(menuItems.deleted_at),
-          availableOnly ? eq(menuItems.status, 'available') : undefined,
-          categoryId ? eq(menuItems.category_id, categoryId) : undefined,
-        ),
-      )
-      .orderBy(asc(menuItems.display_order), asc(menuItems.name))
+      .where(and(...whereConditions))
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset(offset)
       .execute();
+
+    return { items, total, page, limit };
   }
 
   async create(data: NewMenuItem): Promise<MenuItem> {

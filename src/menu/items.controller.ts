@@ -32,11 +32,24 @@ export class ItemsController {
   async findAll(
     @Query('category_id') categoryId?: string,
     @Query('available_only') availableOnly?: string,
-  ): Promise<MenuItem[]> {
+    @Query('sort_by') sortBy?: string,
+    @Query('sort_order') sortOrder?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{ items: MenuItem[]; total: number; page: number; limit: number }> {
     const categoryIdNum = categoryId ? parseInt(categoryId, 10) : undefined;
     const availableOnlyBool = availableOnly !== 'false';
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 50;
 
-    return this.itemsService.findAll(categoryIdNum, availableOnlyBool);
+    return this.itemsService.findAll(
+      categoryIdNum,
+      availableOnlyBool,
+      sortBy,
+      sortOrder,
+      pageNum,
+      limitNum
+    );
   }
 
   @Get(':id')
