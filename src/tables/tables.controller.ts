@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Res,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { TablesService } from './tables.service';
@@ -148,6 +149,32 @@ export class TablesController {
       'Content-Disposition',
       `attachment; filename="table-${table.table_number}-qr.png"`,
     );
+    res.send(buffer);
+  }
+
+  /**
+   * Get QR code image for display
+   * GET /api/admin/tables/:id/qr/image
+   */
+  @Get(':id/qr/image')
+  async getQrImage(@Param('id') id: string, @Res() res: Response) {
+    const tableId = parseInt(id);
+    const table = await this.tablesService.getTableById(tableId);
+
+    if (!table.qr_token) {
+      throw new NotFoundException('No QR code generated for this table');
+    }
+
+    const qrCodeDataUrl = await this.tablesService.generateQrCodeImage(
+      table.qr_token,
+    );
+
+    // Convert data URL to buffer
+    const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
     res.send(buffer);
   }
 
