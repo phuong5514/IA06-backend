@@ -61,12 +61,15 @@ export class TablesController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async createTable(@Body() data: {
-    table_number: string;
-    capacity: number;
-    location?: string;
-    description?: string;
-  }) {
+  async createTable(
+    @Body()
+    data: {
+      table_number: string;
+      capacity: number;
+      location?: string;
+      description?: string;
+    },
+  ) {
     return this.tablesService.createTable(data);
   }
 
@@ -77,7 +80,8 @@ export class TablesController {
   @Put(':id')
   async updateTable(
     @Param('id') id: string,
-    @Body() data: {
+    @Body()
+    data: {
       table_number?: string;
       capacity?: number;
       location?: string;
@@ -131,14 +135,19 @@ export class TablesController {
       throw new Error('No QR code generated for this table');
     }
 
-    const qrCodeDataUrl = await this.tablesService.generateQrCodeImage(table.qr_token);
+    const qrCodeDataUrl = await this.tablesService.generateQrCodeImage(
+      table.qr_token,
+    );
 
     // Convert data URL to buffer
     const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
 
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Disposition', `attachment; filename="table-${table.table_number}-qr.png"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="table-${table.table_number}-qr.png"`,
+    );
     res.send(buffer);
   }
 
@@ -158,7 +167,10 @@ export class TablesController {
     const pdfBuffer = await this.tablesService.generateQrCodePdf(table);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="table-${table.table_number}-qr.pdf"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="table-${table.table_number}-qr.pdf"`,
+    );
     res.send(pdfBuffer);
   }
 
@@ -170,8 +182,41 @@ export class TablesController {
   async downloadAllQrCodes(@Res() res: Response) {
     const zipBuffer = await this.tablesService.generateAllQrCodesZip();
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="all-tables-qr-codes.zip"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="all-tables-qr-codes.zip"',
+    );
     res.send(zipBuffer);
+  }
+
+  /**
+   * Download all QR codes as PNG files in ZIP
+   * GET /api/admin/tables/qr/download-all-pngs
+   */
+  @Get('qr/download-all-pngs')
+  async downloadAllQrCodesPng(@Res() res: Response) {
+    const zipBuffer = await this.tablesService.generateAllQrCodesPngZip();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="all-tables-qr-codes-png.zip"',
+    );
+    res.send(zipBuffer);
+  }
+
+  /**
+   * Download combined PDF with all QR codes
+   * GET /api/admin/tables/qr/download-combined-pdf
+   */
+  @Get('qr/download-combined-pdf')
+  async downloadCombinedQrCodesPdf(@Res() res: Response) {
+    const pdfBuffer = await this.tablesService.generateCombinedQrCodesPdf();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="all-tables-qr-codes-combined.pdf"',
+    );
+    res.send(pdfBuffer);
   }
 }
 

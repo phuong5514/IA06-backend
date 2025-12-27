@@ -9,6 +9,7 @@ import PDFKit from 'pdfkit';
 import archiver from 'archiver';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PDFDocument } from 'pdf-lib';
 import { db } from '../db';
 import { tables } from '../db/schema';
 import { QrService } from './qr.service';
@@ -82,8 +83,8 @@ export class TablesService {
         or(
           like(tables.table_number, `%${filters.search}%`),
           like(tables.location, `%${filters.search}%`),
-          like(tables.description, `%${filters.search}%`)
-        )
+          like(tables.description, `%${filters.search}%`),
+        ),
       );
     }
 
@@ -132,17 +133,23 @@ export class TablesService {
   /**
    * Update a table
    */
-  async updateTable(id: number, data: {
-    table_number?: string;
-    capacity?: number;
-    location?: string;
-    description?: string;
-  }) {
+  async updateTable(
+    id: number,
+    data: {
+      table_number?: string;
+      capacity?: number;
+      location?: string;
+      description?: string;
+    },
+  ) {
     // Check if table exists
     const existing = await this.getTableById(id);
 
     // Validate capacity if provided
-    if (data.capacity !== undefined && (data.capacity < 1 || data.capacity > 20)) {
+    if (
+      data.capacity !== undefined &&
+      (data.capacity < 1 || data.capacity > 20)
+    ) {
       throw new BadRequestException('Capacity must be between 1 and 20');
     }
 
@@ -341,22 +348,38 @@ export class TablesService {
         });
 
         // Add frosted effect inside the border area
-        doc.fillOpacity(0.3).rect(20, 20, doc.page.width - 40, doc.page.height - 40).fill('gray');
+        doc
+          .fillOpacity(0.3)
+          .rect(20, 20, doc.page.width - 40, doc.page.height - 40)
+          .fill('gray');
         doc.fillOpacity(1); // Reset opacity
 
         // Add border
-        doc.strokeColor('white').lineWidth(2).rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
+        doc
+          .strokeColor('white')
+          .lineWidth(2)
+          .rect(20, 20, doc.page.width - 40, doc.page.height - 40)
+          .stroke();
 
         // Add logo at the top center
         const logoWidth = 100;
         const logoHeight = 100;
         const logoX = (doc.page.width - logoWidth) / 2;
-        doc.image(logoBuffer, logoX, 30, { width: logoWidth, height: logoHeight });
+        doc.image(logoBuffer, logoX, 30, {
+          width: logoWidth,
+          height: logoHeight,
+        });
 
         // Title
         doc.moveDown(3);
-        doc.fillColor('white').font('Times-Italic').fontSize(24).text('Smart Restaurant', { align: 'center' });
-        doc.fontSize(18).text(`Table ${table.table_number}`, { align: 'center' });
+        doc
+          .fillColor('white')
+          .font('Times-Italic')
+          .fontSize(24)
+          .text('Smart Restaurant', { align: 'center' });
+        doc
+          .fontSize(18)
+          .text(`Table ${table.table_number}`, { align: 'center' });
         doc.moveDown();
 
         // Table info
@@ -397,9 +420,11 @@ export class TablesService {
 
         // Footer
         doc.moveDown(20);
-        doc.fontSize(8).text('Generated on ' + new Date().toLocaleDateString(), {
-          align: 'center',
-        });
+        doc
+          .fontSize(8)
+          .text('Generated on ' + new Date().toLocaleDateString(), {
+            align: 'center',
+          });
 
         doc.end();
       } catch (error) {
@@ -452,7 +477,9 @@ export class TablesService {
           const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
           const buffer = Buffer.from(base64Data, 'base64');
 
-          archive.append(buffer, { name: `table-${table.table_number}-qr.png` });
+          archive.append(buffer, {
+            name: `table-${table.table_number}-qr.png`,
+          });
         } catch (error) {
           console.error(`Failed to generate QR for table ${table.id}:`, error);
         }
@@ -460,5 +487,50 @@ export class TablesService {
 
       archive.finalize();
     });
+  }
+
+  /**
+   * Generate ZIP file with all QR codes as PNG files
+   */
+  async generateAllQrCodesPngZip(): Promise<Buffer> {
+    return this.generateAllQrCodesZip();
+  }
+
+  /**
+   * Generate combined PDF with all QR codes by merging individual PDFs
+   */
+  async generateCombinedQrCodesPdf(): Promise<Buffer> {
+    // Get all active tables
+    const allTables = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.is_active, true));
+
+    // Create a new PDF document to hold all combined PDFs
+    const combinedPdf = await PDFDocument.create();
+
+    // Process each table
+    for (const table of allTables) {
+      try {
+        // Generate the individual PDF for this table
+        const tablePdfBuffer = await this.generateQrCodePdf(table);
+
+        // Load the individual PDF
+        const tablePdf = await PDFDocument.load(tablePdfBuffer);
+
+        // Copy all pages from the individual PDF to the combined PDF
+        const copiedPages = await combinedPdf.copyPages(tablePdf, tablePdf.getPageIndices());
+        copiedPages.forEach((page) => {
+          combinedPdf.addPage(page);
+        });
+      } catch (error) {
+        console.error(`Failed to add PDF for table ${table.id}:`, error);
+        // Continue with other tables even if one fails
+      }
+    }
+
+    // Save the combined PDF
+    const combinedPdfBytes = await combinedPdf.save();
+    return Buffer.from(combinedPdfBytes);
   }
 }

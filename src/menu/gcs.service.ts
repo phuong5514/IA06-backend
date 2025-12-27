@@ -14,7 +14,10 @@ export class GcsService {
     });
   }
 
-  async generateSignedUploadUrl(fileName: string, contentType: string): Promise<string> {
+  async generateSignedUploadUrl(
+    fileName: string,
+    contentType: string,
+  ): Promise<string> {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(fileName);
 

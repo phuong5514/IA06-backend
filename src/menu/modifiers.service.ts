@@ -46,7 +46,9 @@ export class ModifiersService {
     return group;
   }
 
-  async findGroupsByItem(menuItemId: number): Promise<ModifierGroupWithOptions[]> {
+  async findGroupsByItem(
+    menuItemId: number,
+  ): Promise<ModifierGroupWithOptions[]> {
     const groups = await this.db
       .select()
       .from(modifierGroups)
@@ -54,7 +56,7 @@ export class ModifiersService {
       .orderBy(asc(modifierGroups.display_order), asc(modifierGroups.name));
 
     // Fetch options for all groups
-    const groupIds = groups.map(g => g.id);
+    const groupIds = groups.map((g) => g.id);
     if (groupIds.length > 0) {
       const options = await this.db
         .select()
@@ -63,22 +65,25 @@ export class ModifiersService {
         .orderBy(asc(modifierOptions.display_order), asc(modifierOptions.name));
 
       // Group options by modifier_group_id
-      const optionsByGroup = options.reduce((acc, option) => {
-        if (!acc[option.modifier_group_id]) {
-          acc[option.modifier_group_id] = [];
-        }
-        acc[option.modifier_group_id].push(option);
-        return acc;
-      }, {} as Record<number, ModifierOption[]>);
+      const optionsByGroup = options.reduce(
+        (acc, option) => {
+          if (!acc[option.modifier_group_id]) {
+            acc[option.modifier_group_id] = [];
+          }
+          acc[option.modifier_group_id].push(option);
+          return acc;
+        },
+        {} as Record<number, ModifierOption[]>,
+      );
 
       // Attach options to groups
-      return groups.map(group => ({
+      return groups.map((group) => ({
         ...group,
         options: optionsByGroup[group.id] || [],
       }));
     }
 
-    return groups.map(group => ({ ...group, options: [] }));
+    return groups.map((group) => ({ ...group, options: [] }));
   }
 
   async createGroup(data: NewModifierGroup): Promise<ModifierGroup> {

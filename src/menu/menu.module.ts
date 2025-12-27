@@ -18,7 +18,19 @@ import { ImportController } from './import.controller';
     ExportController,
     ImportController,
   ],
-  providers: [CategoriesService, ItemsService, ImageService, GcsService, ModifiersService],
-  exports: [CategoriesService, ItemsService, ImageService, GcsService, ModifiersService],
+  providers: [
+    CategoriesService,
+    ItemsService,
+    ImageService,
+    GcsService,
+    ModifiersService,
+  ],
+  exports: [
+    CategoriesService,
+    ItemsService,
+    ImageService,
+    GcsService,
+    ModifiersService,
+  ],
 })
 export class MenuModule {}

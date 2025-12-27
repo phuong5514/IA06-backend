@@ -15,14 +15,20 @@ export class ImageService {
     private readonly gcsService: GcsService,
   ) {}
 
-  async generateUploadUrl(fileName: string, contentType: string): Promise<{ signedUrl: string; fileName: string }> {
+  async generateUploadUrl(
+    fileName: string,
+    contentType: string,
+  ): Promise<{ signedUrl: string; fileName: string }> {
     // Generate unique filename
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     const extension = path.extname(fileName);
     const baseName = `menu_items/${timestamp}_${random}${extension}`;
 
-    const signedUrl = await this.gcsService.generateSignedUploadUrl(baseName, contentType);
+    const signedUrl = await this.gcsService.generateSignedUploadUrl(
+      baseName,
+      contentType,
+    );
 
     return {
       signedUrl,
@@ -30,10 +36,15 @@ export class ImageService {
     };
   }
 
-  async confirmImageUpload(menuItemId: number, gcsFileName: string): Promise<any> {
+  async confirmImageUpload(
+    menuItemId: number,
+    gcsFileName: string,
+  ): Promise<any> {
     try {
       // Download image from GCS for processing
-      const bucket = this.gcsService['storage'].bucket(this.gcsService['bucketName']);
+      const bucket = this.gcsService['storage'].bucket(
+        this.gcsService['bucketName'],
+      );
       const file = bucket.file(gcsFileName);
       const [buffer] = await file.download();
 
@@ -84,7 +95,10 @@ export class ImageService {
         format: metadata.format || 'jpeg',
       };
 
-      const savedImage = await this.itemsService.addImage(menuItemId, imageData);
+      const savedImage = await this.itemsService.addImage(
+        menuItemId,
+        imageData,
+      );
 
       return {
         id: savedImage.id,
@@ -99,6 +113,4 @@ export class ImageService {
       throw new BadRequestException('Failed to process uploaded image');
     }
   }
-
-
 }
