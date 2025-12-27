@@ -64,7 +64,7 @@ export class TablesService {
     status?: 'active' | 'inactive';
     location?: string;
     search?: string;
-    sortBy?: 'table_number' | 'capacity' | 'created_at';
+    sortBy?: 'table_number' | 'capacity' | 'created_at' | 'updated_at';
     sortOrder?: 'asc' | 'desc';
   }) {
     const conditions = [];
@@ -99,6 +99,9 @@ export class TablesService {
         break;
       case 'created_at':
         orderByColumn = tables.created_at;
+        break;
+      case 'updated_at':
+        orderByColumn = tables.updated_at;
         break;
       default:
         orderByColumn = tables.table_number;

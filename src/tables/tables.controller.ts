@@ -33,7 +33,7 @@ export class TablesController {
     @Query('status') status?: 'active' | 'inactive',
     @Query('location') location?: string,
     @Query('search') search?: string,
-    @Query('sortBy') sortBy?: 'table_number' | 'capacity' | 'created_at',
+    @Query('sortBy') sortBy?: 'table_number' | 'capacity' | 'created_at' | 'updated_at',
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     const filters = {
