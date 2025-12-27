@@ -5,8 +5,10 @@ import {
 } from '@nestjs/common';
 import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
 import * as QRCode from 'qrcode';
-import * as PDFKit from 'pdfkit';
+import PDFKit from 'pdfkit';
 import archiver from 'archiver';
+import * as fs from 'fs';
+import * as path from 'path';
 import { db } from '../db';
 import { tables } from '../db/schema';
 import { QrService } from './qr.service';
@@ -324,9 +326,36 @@ export class TablesService {
         doc.on('end', () => resolve(Buffer.concat(buffers)));
         doc.on('error', reject);
 
+        // Load images
+        const assetsPath = path.join(process.cwd(), 'src', 'assets');
+        const backgroundPath = path.join(assetsPath, 'background.png');
+        const logoPath = path.join(assetsPath, 'logo.png');
+
+        const backgroundBuffer = fs.readFileSync(backgroundPath);
+        const logoBuffer = fs.readFileSync(logoPath);
+
+        // Add background image
+        doc.image(backgroundBuffer, 0, 0, {
+          width: doc.page.width,
+          height: doc.page.height,
+        });
+
+        // Add frosted effect inside the border area
+        doc.fillOpacity(0.3).rect(20, 20, doc.page.width - 40, doc.page.height - 40).fill('gray');
+        doc.fillOpacity(1); // Reset opacity
+
+        // Add border
+        doc.strokeColor('white').lineWidth(2).rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
+
+        // Add logo at the top center
+        const logoWidth = 100;
+        const logoHeight = 100;
+        const logoX = (doc.page.width - logoWidth) / 2;
+        doc.image(logoBuffer, logoX, 30, { width: logoWidth, height: logoHeight });
+
         // Title
-        doc.fontSize(24).text('Smart Restaurant', { align: 'center' });
-        doc.moveDown();
+        doc.moveDown(3);
+        doc.fillColor('white').font('Times-Italic').fontSize(24).text('Smart Restaurant', { align: 'center' });
         doc.fontSize(18).text(`Table ${table.table_number}`, { align: 'center' });
         doc.moveDown();
 
@@ -367,7 +396,7 @@ export class TablesService {
         doc.image(qrBuffer, x, y, { width: qrSize, height: qrSize });
 
         // Footer
-        doc.moveDown(5);
+        doc.moveDown(20);
         doc.fontSize(8).text('Generated on ' + new Date().toLocaleDateString(), {
           align: 'center',
         });
