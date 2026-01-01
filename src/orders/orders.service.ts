@@ -1,0 +1,298 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { eq, desc, and } from 'drizzle-orm';
+import {
+  orders,
+  orderItems,
+  orderItemModifiers,
+  menuItems,
+  modifierOptions,
+  modifierGroups,
+  Order,
+  OrderItem,
+} from '../db/schema';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderStatus } from './dto/update-order-status.dto';
+
+@Injectable()
+export class OrdersService {
+  private db;
+
+  constructor() {
+    this.db = drizzle(process.env.DATABASE_URL);
+  }
+
+  async create(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
+    try {
+      // Validate all menu items exist and calculate prices
+      const itemsWithPrices = await Promise.all(
+        createOrderDto.items.map(async (item) => {
+          const [menuItem] = await this.db
+            .select()
+            .from(menuItems)
+            .where(eq(menuItems.id, item.menu_item_id))
+            .execute();
+
+          if (!menuItem) {
+            throw new BadRequestException(
+              `Menu item with ID ${item.menu_item_id} not found`,
+            );
+          }
+
+          if (menuItem.status !== 'available') {
+            throw new BadRequestException(
+              `Menu item "${menuItem.name}" is not available`,
+            );
+          }
+
+          // Calculate modifier prices
+          let modifierTotal = 0;
+          const validatedModifiers = await Promise.all(
+            item.modifiers.map(async (modifier) => {
+              const [modOption] = await this.db
+                .select()
+                .from(modifierOptions)
+                .where(eq(modifierOptions.id, modifier.modifier_option_id))
+                .execute();
+
+              if (!modOption) {
+                throw new BadRequestException(
+                  `Modifier option with ID ${modifier.modifier_option_id} not found`,
+                );
+              }
+
+              if (!modOption.is_available) {
+                throw new BadRequestException(
+                  `Modifier "${modOption.name}" is not available`,
+                );
+              }
+
+              modifierTotal += parseFloat(modOption.price_adjustment);
+              return {
+                ...modifier,
+                price_adjustment: modOption.price_adjustment,
+              };
+            }),
+          );
+
+          const unitPrice =
+            parseFloat(menuItem.price) + modifierTotal;
+          const totalPrice = unitPrice * item.quantity;
+
+          return {
+            ...item,
+            unit_price: unitPrice.toFixed(2),
+            total_price: totalPrice.toFixed(2),
+            modifiers: validatedModifiers,
+          };
+        }),
+      );
+
+      // Calculate order total
+      const totalAmount = itemsWithPrices
+        .reduce((sum, item) => sum + parseFloat(item.total_price), 0)
+        .toFixed(2);
+
+      // Create order
+      const [order] = await this.db
+        .insert(orders)
+        .values({
+          user_id: userId,
+          table_id: createOrderDto.table_id || null,
+          status: 'pending',
+          total_amount: totalAmount,
+        })
+        .returning();
+
+      // Create order items
+      for (const item of itemsWithPrices) {
+        const [orderItem] = await this.db
+          .insert(orderItems)
+          .values({
+            order_id: order.id,
+            menu_item_id: item.menu_item_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            special_instructions: item.special_instructions || null,
+          })
+          .returning();
+
+        // Create order item modifiers
+        if (item.modifiers.length > 0) {
+          await this.db
+            .insert(orderItemModifiers)
+            .values(
+              item.modifiers.map((mod) => ({
+                order_item_id: orderItem.id,
+                modifier_group_id: mod.modifier_group_id,
+                modifier_option_id: mod.modifier_option_id,
+                price_adjustment: mod.price_adjustment,
+              })),
+            )
+            .execute();
+        }
+      }
+
+      return order;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      throw error;
+    }
+  }
+
+  async findAll(userId: string): Promise<any> {
+    const userOrders = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.user_id, userId))
+      .orderBy(desc(orders.created_at))
+      .execute();
+
+    // Get item counts for each order
+    const ordersWithCounts = await Promise.all(
+      userOrders.map(async (order) => {
+        const items = await this.db
+          .select()
+          .from(orderItems)
+          .where(eq(orderItems.order_id, order.id))
+          .execute();
+
+        const itemsCount = items.reduce(
+          (sum, item) => sum + item.quantity,
+          0,
+        );
+
+        return {
+          ...order,
+          items_count: itemsCount,
+        };
+      }),
+    );
+
+    return { orders: ordersWithCounts };
+  }
+
+  async findOne(id: number, userId: string): Promise<any> {
+    const [order] = await this.db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, id), eq(orders.user_id, userId)))
+      .execute();
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    // Get order items with menu item details
+    const items = await this.db
+      .select({
+        orderItem: orderItems,
+        menuItem: menuItems,
+      })
+      .from(orderItems)
+      .innerJoin(menuItems, eq(orderItems.menu_item_id, menuItems.id))
+      .where(eq(orderItems.order_id, id))
+      .execute();
+
+    // Get modifiers for each item
+    const itemsWithModifiers = await Promise.all(
+      items.map(async (item) => {
+        const modifiers = await this.db
+          .select({
+            modifier: orderItemModifiers,
+            modifierOption: modifierOptions,
+            modifierGroup: modifierGroups,
+          })
+          .from(orderItemModifiers)
+          .innerJoin(
+            modifierOptions,
+            eq(orderItemModifiers.modifier_option_id, modifierOptions.id),
+          )
+          .innerJoin(
+            modifierGroups,
+            eq(orderItemModifiers.modifier_group_id, modifierGroups.id),
+          )
+          .where(eq(orderItemModifiers.order_item_id, item.orderItem.id))
+          .execute();
+
+        return {
+          id: item.orderItem.id,
+          menu_item_id: item.orderItem.menu_item_id,
+          menu_item_name: item.menuItem.name,
+          quantity: item.orderItem.quantity,
+          base_price: item.menuItem.price,
+          price: item.orderItem.total_price,
+          unit_price: item.orderItem.unit_price,
+          special_instructions: item.orderItem.special_instructions,
+          modifiers: modifiers.map((m) => ({
+            modifier_group_name: m.modifierGroup.name,
+            modifier_option_name: m.modifierOption.name,
+            price_adjustment: m.modifier.price_adjustment,
+          })),
+        };
+      }),
+    );
+
+    return {
+      ...order,
+      items: itemsWithModifiers,
+    };
+  }
+
+  async updateStatus(
+    id: number,
+    status: OrderStatus,
+    userId?: string,
+  ): Promise<Order> {
+    // If userId is provided, verify ownership
+    if (userId) {
+      const [existingOrder] = await this.db
+        .select()
+        .from(orders)
+        .where(and(eq(orders.id, id), eq(orders.user_id, userId)))
+        .execute();
+
+      if (!existingOrder) {
+        throw new NotFoundException(`Order with ID ${id} not found`);
+      }
+    }
+
+    const [updatedOrder] = await this.db
+      .update(orders)
+      .set({ status, updated_at: new Date().toISOString() })
+      .where(eq(orders.id, id))
+      .returning();
+
+    if (!updatedOrder) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    return updatedOrder;
+  }
+
+  async cancelOrder(id: number, userId: string): Promise<Order> {
+    const [order] = await this.db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, id), eq(orders.user_id, userId)))
+      .execute();
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    // Only allow cancellation if order is pending or confirmed
+    if (order.status !== 'pending' && order.status !== 'confirmed') {
+      throw new BadRequestException(
+        `Cannot cancel order with status "${order.status}"`,
+      );
+    }
+
+    return this.updateStatus(id, OrderStatus.CANCELLED, userId);
+  }
+}

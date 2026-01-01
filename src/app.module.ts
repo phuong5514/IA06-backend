@@ -8,6 +8,7 @@ import { TablesModule } from './tables/tables.module';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
 import { MenuModule } from './menu/menu.module';
 import { UserModule } from './user/user.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UserModule } from './user/user.module';
     TablesModule,
     MenuModule,
     UserModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

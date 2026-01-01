@@ -235,3 +235,66 @@ export const modifierOptions = pgTable('modifier_options', {
 
 export type ModifierOption = typeof modifierOptions.$inferSelect;
 export type NewModifierOption = typeof modifierOptions.$inferInsert;
+
+// Orders
+export const orderStatusEnum = pgEnum('order_status', ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled']);
+
+export const orders = pgTable('orders', {
+  id: serial('id').primaryKey(),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'restrict' }),
+  table_id: integer('table_id')
+    .references(() => tables.id, { onDelete: 'set null' }),
+  status: orderStatusEnum('status').notNull().default('pending'),
+  total_amount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
+  special_instructions: text('special_instructions'),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type Order = typeof orders.$inferSelect;
+export type NewOrder = typeof orders.$inferInsert;
+
+// Order Items
+export const orderItems = pgTable('order_items', {
+  id: serial('id').primaryKey(),
+  order_id: integer('order_id')
+    .notNull()
+    .references(() => orders.id, { onDelete: 'cascade' }),
+  menu_item_id: integer('menu_item_id')
+    .notNull()
+    .references(() => menuItems.id, { onDelete: 'restrict' }),
+  quantity: integer('quantity').notNull().default(1),
+  unit_price: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
+  total_price: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
+  special_instructions: text('special_instructions'),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type OrderItem = typeof orderItems.$inferSelect;
+export type NewOrderItem = typeof orderItems.$inferInsert;
+
+// Order Item Modifiers
+export const orderItemModifiers = pgTable('order_item_modifiers', {
+  id: serial('id').primaryKey(),
+  order_item_id: integer('order_item_id')
+    .notNull()
+    .references(() => orderItems.id, { onDelete: 'cascade' }),
+  modifier_group_id: integer('modifier_group_id')
+    .notNull()
+    .references(() => modifierGroups.id, { onDelete: 'restrict' }),
+  modifier_option_id: integer('modifier_option_id')
+    .notNull()
+    .references(() => modifierOptions.id, { onDelete: 'restrict' }),
+  price_adjustment: decimal('price_adjustment', { precision: 10, scale: 2 }).notNull(),
+});
+
+export type OrderItemModifier = typeof orderItemModifiers.$inferSelect;
+export type NewOrderItemModifier = typeof orderItemModifiers.$inferInsert;
