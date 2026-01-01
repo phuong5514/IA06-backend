@@ -12,7 +12,7 @@ import {
   NewMenuItem,
   MenuItemImage,
 } from '../db/schema';
-import 'dotenv/config';
+import { ModifiersService } from './modifiers.service';
 
 type NewMenuItemImageInput = Omit<
   MenuItemImage,
@@ -23,7 +23,7 @@ type NewMenuItemImageInput = Omit<
 export class ItemsService {
   private db;
 
-  constructor() {
+  constructor(private readonly modifiersService: ModifiersService) {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
@@ -99,7 +99,7 @@ export class ItemsService {
     return item;
   }
 
-  async findOne(id: number): Promise<MenuItem & { images?: MenuItemImage[] }> {
+  async findOne(id: number): Promise<MenuItem & { images?: MenuItemImage[]; modifiers?: any[] }> {
     const [item] = await this.db
       .select()
       .from(menuItems)
@@ -118,7 +118,10 @@ export class ItemsService {
       .orderBy(desc(menuItemImages.created_at))
       .execute();
 
-    return { ...item, images };
+    // Get associated modifiers
+    const modifiers = await this.modifiersService.findGroupsByItem(id);
+
+    return { ...item, images, modifiers };
   }
 
   async update(id: number, data: Partial<NewMenuItem>): Promise<MenuItem> {

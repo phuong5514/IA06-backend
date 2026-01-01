@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["http://localhost:5173", "https://ia06frontend.vercel.app"],
+    "origin": ["http://localhost:5173", "https://ia06frontend.vercel.app", "ia06frontend-manhphuong5514-2091s-projects.vercel.app", "ia06frontend-manhphuong5514-2091s-projects.vercel.app"],
     "method": ["PUT", "GET", "HEAD"],
     "responseHeader": ["Content-Type"],
     "maxAgeSeconds": 3600
