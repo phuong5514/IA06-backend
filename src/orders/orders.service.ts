@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, or, sql } from 'drizzle-orm';
 import {
   orders,
   orderItems,
@@ -14,6 +15,7 @@ import {
   modifierGroups,
   Order,
   OrderItem,
+  users,
 } from '../db/schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './dto/update-order-status.dto';
@@ -294,5 +296,106 @@ export class OrdersService {
     }
 
     return this.updateStatus(id, OrderStatus.CANCELLED, userId);
+  }
+
+  async getAllOrders(statusFilter?: string): Promise<any> {
+    let query = this.db
+      .select({
+        order: orders,
+        user: {
+          id: users.id,
+          email: users.email,
+          name: users.name,
+        },
+      })
+      .from(orders)
+      .innerJoin(users, eq(orders.user_id, users.id))
+      .orderBy(desc(orders.created_at));
+
+    // Apply status filter if provided
+    let allOrders;
+    if (statusFilter && statusFilter !== 'all') {
+      allOrders = await query
+        .where(eq(orders.status, statusFilter as any))
+        .execute();
+    } else {
+      allOrders = await query.execute();
+    }
+
+    // Get item counts and details for each order
+    const ordersWithDetails = await Promise.all(
+      allOrders.map(async (orderData) => {
+        const items = await this.db
+          .select({
+            orderItem: orderItems,
+            menuItem: menuItems,
+          })
+          .from(orderItems)
+          .innerJoin(menuItems, eq(orderItems.menu_item_id, menuItems.id))
+          .where(eq(orderItems.order_id, orderData.order.id))
+          .execute();
+
+        const itemsCount = items.reduce(
+          (sum, item) => sum + item.orderItem.quantity,
+          0,
+        );
+
+        return {
+          ...orderData.order,
+          user: orderData.user,
+          items_count: itemsCount,
+          items: items.map((item) => ({
+            id: item.orderItem.id,
+            menu_item_name: item.menuItem.name,
+            quantity: item.orderItem.quantity,
+            price: item.orderItem.total_price,
+          })),
+        };
+      }),
+    );
+
+    return { orders: ordersWithDetails };
+  }
+
+  async acceptOrder(id: number, waiterId: string): Promise<Order> {
+    const [order] = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, id))
+      .execute();
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    if (order.status !== 'pending') {
+      throw new BadRequestException(
+        `Can only accept orders with pending status. Current status: ${order.status}`,
+      );
+    }
+
+    // Update to confirmed status
+    return this.updateStatus(id, OrderStatus.CONFIRMED);
+  }
+
+  async rejectOrder(id: number, reason?: string): Promise<Order> {
+    const [order] = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, id))
+      .execute();
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    if (order.status !== 'pending') {
+      throw new BadRequestException(
+        `Can only reject orders with pending status. Current status: ${order.status}`,
+      );
+    }
+
+    // Update to cancelled status
+    return this.updateStatus(id, OrderStatus.CANCELLED);
   }
 }
