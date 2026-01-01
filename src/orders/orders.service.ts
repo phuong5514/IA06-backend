@@ -340,16 +340,47 @@ export class OrdersService {
           0,
         );
 
+        // Get modifiers for each item
+        const itemsWithModifiers = await Promise.all(
+          items.map(async (item) => {
+            const modifiers = await this.db
+              .select({
+                modifierGroup: modifierGroups,
+                modifierOption: modifierOptions,
+                orderItemModifier: orderItemModifiers,
+              })
+              .from(orderItemModifiers)
+              .innerJoin(
+                modifierGroups,
+                eq(orderItemModifiers.modifier_group_id, modifierGroups.id),
+              )
+              .innerJoin(
+                modifierOptions,
+                eq(orderItemModifiers.modifier_option_id, modifierOptions.id),
+              )
+              .where(eq(orderItemModifiers.order_item_id, item.orderItem.id))
+              .execute();
+
+            return {
+              id: item.orderItem.id,
+              menu_item_name: item.menuItem.name,
+              quantity: item.orderItem.quantity,
+              price: item.orderItem.total_price,
+              special_instructions: item.orderItem.special_instructions,
+              modifiers: modifiers.map((mod) => ({
+                modifier_group_name: mod.modifierGroup.name,
+                modifier_option_name: mod.modifierOption.name,
+                price_adjustment: mod.orderItemModifier.price_adjustment,
+              })),
+            };
+          }),
+        );
+
         return {
           ...orderData.order,
           user: orderData.user,
           items_count: itemsCount,
-          items: items.map((item) => ({
-            id: item.orderItem.id,
-            menu_item_name: item.menuItem.name,
-            quantity: item.orderItem.quantity,
-            price: item.orderItem.total_price,
-          })),
+          items: itemsWithModifiers,
         };
       }),
     );
@@ -374,8 +405,8 @@ export class OrdersService {
       );
     }
 
-    // Update to confirmed status
-    return this.updateStatus(id, OrderStatus.CONFIRMED);
+    // Update to preparing status - order goes directly to kitchen
+    return this.updateStatus(id, OrderStatus.PREPARING);
   }
 
   async rejectOrder(id: number, reason?: string): Promise<Order> {
