@@ -237,7 +237,16 @@ export type ModifierOption = typeof modifierOptions.$inferSelect;
 export type NewModifierOption = typeof modifierOptions.$inferInsert;
 
 // Orders
-export const orderStatusEnum = pgEnum('order_status', ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled']);
+export const orderStatusEnum = pgEnum('order_status', [
+  'pending',
+  'accepted',
+  'rejected',
+  'preparing',
+  'ready',
+  'served',
+  'completed',
+  'cancelled'
+]);
 
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
@@ -249,6 +258,7 @@ export const orders = pgTable('orders', {
   status: orderStatusEnum('status').notNull().default('pending'),
   total_amount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
   special_instructions: text('special_instructions'),
+  rejection_reason: text('rejection_reason'),
   created_at: timestamp('created_at', { mode: 'string' })
     .defaultNow()
     .notNull(),
