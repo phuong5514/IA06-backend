@@ -9,6 +9,7 @@ import { InfrastructureModule } from './infrastructure/infrastructure.module';
 import { MenuModule } from './menu/menu.module';
 import { UserModule } from './user/user.module';
 import { OrdersModule } from './orders/orders.module';
+import { WebsocketModule } from './websocket/websocket.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { OrdersModule } from './orders/orders.module';
     MenuModule,
     UserModule,
     OrdersModule,
+    WebsocketModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -19,12 +19,13 @@ import {
 } from '../db/schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './dto/update-order-status.dto';
+import { OrdersGateway } from '../websocket/orders.gateway';
 
 @Injectable()
 export class OrdersService {
   private db;
 
-  constructor() {
+  constructor(private ordersGateway: OrdersGateway) {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
@@ -139,6 +140,9 @@ export class OrdersService {
             .execute();
         }
       }
+
+      // Notify about new order via WebSocket
+      this.ordersGateway.notifyNewOrder(order);
 
       return order;
     } catch (error) {
@@ -264,6 +268,19 @@ export class OrdersService {
       }
     }
 
+    // Get previous status before updating
+    const [orderBeforeUpdate] = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, id))
+      .execute();
+
+    if (!orderBeforeUpdate) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    const previousStatus = orderBeforeUpdate.status;
+
     const [updatedOrder] = await this.db
       .update(orders)
       .set({ status, updated_at: new Date().toISOString() })
@@ -273,6 +290,9 @@ export class OrdersService {
     if (!updatedOrder) {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
+
+    // Notify about status change via WebSocket
+    this.ordersGateway.notifyStatusChange(updatedOrder, previousStatus);
 
     return updatedOrder;
   }
@@ -436,6 +456,9 @@ export class OrdersService {
       })
       .where(eq(orders.id, id))
       .returning();
+
+    // Notify about order rejection via WebSocket
+    this.ordersGateway.notifyOrderRejected(updatedOrder);
 
     return updatedOrder;
   }

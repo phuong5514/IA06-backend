@@ -64,7 +64,14 @@ export class OrdersController {
     @Body() updateOrderStatusDto: UpdateOrderStatusDto,
     @Request() req,
   ) {
-    const userId = req.user.userId;
+    const userRole = req.user.role;
+    
+    // Staff (waiter, kitchen, admin) can update any order
+    // Customers can only update their own orders
+    const userId = ['waiter', 'kitchen', 'admin', 'super_admin'].includes(userRole)
+      ? undefined
+      : req.user.userId;
+    
     return this.ordersService.updateStatus(
       id,
       updateOrderStatusDto.status,
@@ -90,6 +97,19 @@ export class OrdersController {
   @UseGuards(RolesGuard)
   @Roles('waiter', 'admin', 'super_admin')
   async getAllOrdersForWaiter(
+    @Query('status') status?: string,
+  ) {
+    return this.ordersService.getAllOrders(status);
+  }
+
+  /**
+   * Get all orders for kitchen staff (with optional status filter)
+   * GET /api/orders/kitchen/all
+   */
+  @Get('kitchen/all')
+  @UseGuards(RolesGuard)
+  @Roles('kitchen', 'admin', 'super_admin')
+  async getAllOrdersForKitchen(
     @Query('status') status?: string,
   ) {
     return this.ordersService.getAllOrders(status);
