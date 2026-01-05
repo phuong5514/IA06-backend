@@ -426,7 +426,12 @@ export class OrdersService {
     }
 
     // Update to accepted status - waiter has accepted the order
-    return this.updateStatus(id, OrderStatus.ACCEPTED);
+    const updatedOrder = await this.updateStatus(id, OrderStatus.ACCEPTED);
+    
+    // Notify about order acceptance via WebSocket
+    this.ordersGateway.notifyOrderAccepted(updatedOrder);
+    
+    return updatedOrder;
   }
 
   async rejectOrder(id: number, reason?: string): Promise<Order> {

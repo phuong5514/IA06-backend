@@ -74,7 +74,7 @@ export class OrdersGateway
       client.join(`user:${payload.userId || payload.sub}`);
 
       this.logger.log(
-        `Client connected: ${client.id} | User: ${payload.email} | Role: ${payload.role}`,
+        `Client connected: ${client.id} | User: ${payload.email} | Role: ${payload.role} | Rooms: role:${payload.role}, user:${payload.userId || payload.sub}`,
       );
 
       // Send connection confirmation
@@ -114,12 +114,14 @@ export class OrdersGateway
    * Notify customer of order acceptance
    */
   notifyOrderAccepted(order: any) {
-    this.logger.log(`Notifying customer of accepted order #${order.id}`);
+    this.logger.log(`[notifyOrderAccepted] Order #${order.id} - Emitting to role:kitchen, role:admin, user:${order.user_id}`);
     this.server.to(`user:${order.user_id}`).emit('orderAccepted', order);
     
     // Also notify kitchen of new order to prepare
     this.server.to('role:kitchen').emit('orderAccepted', order);
     this.server.to('role:admin').emit('orderAccepted', order);
+    
+    this.logger.log(`[notifyOrderAccepted] Emitted orderAccepted event for order #${order.id}`);
   }
 
   /**
