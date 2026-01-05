@@ -14,6 +14,10 @@ import { sql } from 'drizzle-orm';
 
 export const menuItemStatusEnum = pgEnum('menu_item_status', ['available', 'unavailable', 'sold_out']);
 
+// Export payment-related schemas
+export { payments, paymentOrders, paymentStatusEnum, paymentMethodEnum } from './payment-schema';
+export type { Payment, NewPayment, PaymentOrder, NewPaymentOrder } from './payment-schema';
+
 export const users = pgTable('users', {
   id: uuid('id')
     .default(sql`gen_random_uuid()`)
