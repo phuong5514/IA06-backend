@@ -19,12 +19,13 @@ import {
 } from '../db/schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './dto/update-order-status.dto';
+import { OrdersGateway } from '../websocket/orders.gateway';
 
 @Injectable()
 export class OrdersService {
   private db;
 
-  constructor() {
+  constructor(private ordersGateway: OrdersGateway) {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
@@ -139,6 +140,9 @@ export class OrdersService {
             .execute();
         }
       }
+
+      // Notify about new order via WebSocket
+      this.ordersGateway.notifyNewOrder(order);
 
       return order;
     } catch (error) {
@@ -264,6 +268,19 @@ export class OrdersService {
       }
     }
 
+    // Get previous status before updating
+    const [orderBeforeUpdate] = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, id))
+      .execute();
+
+    if (!orderBeforeUpdate) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    const previousStatus = orderBeforeUpdate.status;
+
     const [updatedOrder] = await this.db
       .update(orders)
       .set({ status, updated_at: new Date().toISOString() })
@@ -273,6 +290,9 @@ export class OrdersService {
     if (!updatedOrder) {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
+
+    // Notify about status change via WebSocket
+    this.ordersGateway.notifyStatusChange(updatedOrder, previousStatus);
 
     return updatedOrder;
   }
@@ -288,8 +308,8 @@ export class OrdersService {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
 
-    // Only allow cancellation if order is pending or confirmed
-    if (order.status !== 'pending' && order.status !== 'confirmed') {
+    // Only allow cancellation if order is pending or accepted
+    if (order.status !== 'pending' && order.status !== 'accepted') {
       throw new BadRequestException(
         `Cannot cancel order with status "${order.status}"`,
       );
@@ -405,8 +425,13 @@ export class OrdersService {
       );
     }
 
-    // Update to preparing status - order goes directly to kitchen
-    return this.updateStatus(id, OrderStatus.PREPARING);
+    // Update to accepted status - waiter has accepted the order
+    const updatedOrder = await this.updateStatus(id, OrderStatus.ACCEPTED);
+    
+    // Notify about order acceptance via WebSocket
+    this.ordersGateway.notifyOrderAccepted(updatedOrder);
+    
+    return updatedOrder;
   }
 
   async rejectOrder(id: number, reason?: string): Promise<Order> {
@@ -426,7 +451,20 @@ export class OrdersService {
       );
     }
 
-    // Update to cancelled status
-    return this.updateStatus(id, OrderStatus.CANCELLED);
+    // Update to rejected status with reason
+    const [updatedOrder] = await this.db
+      .update(orders)
+      .set({
+        status: OrderStatus.REJECTED,
+        rejection_reason: reason || 'No reason provided',
+        updated_at: new Date().toISOString(),
+      })
+      .where(eq(orders.id, id))
+      .returning();
+
+    // Notify about order rejection via WebSocket
+    this.ordersGateway.notifyOrderRejected(updatedOrder);
+
+    return updatedOrder;
   }
 }

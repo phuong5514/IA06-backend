@@ -2,10 +2,12 @@ import { IsEnum, IsNotEmpty } from 'class-validator';
 
 export enum OrderStatus {
   PENDING = 'pending',
-  CONFIRMED = 'confirmed',
+  ACCEPTED = 'accepted',
+  REJECTED = 'rejected',
   PREPARING = 'preparing',
   READY = 'ready',
-  DELIVERED = 'delivered',
+  SERVED = 'served',
+  COMPLETED = 'completed',
   CANCELLED = 'cancelled',
 }
 
