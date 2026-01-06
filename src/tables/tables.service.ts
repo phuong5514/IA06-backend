@@ -209,8 +209,8 @@ export class TablesService {
   }
 
   /**
-   * Verify a QR token and return table information with menu URL
-   * @param qrToken - The QR token to verify
+   * Verify a QR token or short code and return table information with menu URL
+   * @param qrToken - The QR token or short code to verify
    * @returns Table information and menu URL
    */
   async verifyQrToken(qrToken: string): Promise<{
@@ -218,29 +218,48 @@ export class TablesService {
     table_number: string;
     menu_url: string;
   }> {
-    // Verify the token signature and expiration
-    const verification = this.qrService.verifyTableToken(qrToken);
+    let table = null;
+    
+    // Check if input is a short code (8 characters or less)
+    if (qrToken.length <= 8) {
+      // Try to find table by short code
+      const [foundTable] = await db
+        .select()
+        .from(tables)
+        .where(eq(tables.short_code, qrToken.toUpperCase()))
+        .limit(1);
+      
+      table = foundTable;
+    }
+    
+    // If not found by short code, verify as full token
+    if (!table) {
+      // Verify the token signature and expiration
+      const verification = this.qrService.verifyTableToken(qrToken);
 
-    if (!verification.valid) {
-      if (verification.expired) {
-        throw new BadRequestException(
-          'QR code has expired. Please request a new one.',
-        );
+      if (!verification.valid) {
+        if (verification.expired) {
+          throw new BadRequestException(
+            'QR code has expired. Please request a new one.',
+          );
+        }
+        throw new BadRequestException('Invalid QR code or short code.');
       }
-      throw new BadRequestException('Invalid QR code.');
-    }
 
-    const tableId = verification.tableId;
-    if (!tableId) {
-      throw new BadRequestException('Invalid QR code format.');
-    }
+      const tableId = verification.tableId;
+      if (!tableId) {
+        throw new BadRequestException('Invalid QR code format.');
+      }
 
-    // Fetch table from database
-    const [table] = await db
-      .select()
-      .from(tables)
-      .where(eq(tables.id, parseInt(tableId)))
-      .limit(1);
+      // Fetch table from database
+      const [foundTable] = await db
+        .select()
+        .from(tables)
+        .where(eq(tables.id, parseInt(tableId)))
+        .limit(1);
+
+      table = foundTable;
+    }
 
     if (!table) {
       throw new NotFoundException('Table not found.');
@@ -259,6 +278,19 @@ export class TablesService {
       table_number: table.table_number,
       menu_url,
     };
+  }
+
+  /**
+   * Generate a short code for manual entry (6-8 alphanumeric characters)
+   */
+  private generateShortCode(tableId: number): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar looking chars
+    const timestamp = Date.now().toString(36).slice(-3).toUpperCase();
+    const random = Array.from({ length: 3 }, () => 
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
+    const tableStr = tableId.toString(36).toUpperCase().padStart(2, '0').slice(-2);
+    return `${tableStr}${timestamp}${random}`; // Format: TT-XXX-RRR (8 chars)
   }
 
   /**
@@ -285,12 +317,30 @@ export class TablesService {
     const ttlSeconds = 60 * 60 * 24 * 365;
     const qr_token = this.qrService.generateTableToken(tableId, ttlSeconds);
     const expires_at = new Date(Date.now() + ttlSeconds * 1000);
+    
+    // Generate short code for manual entry
+    let short_code = this.generateShortCode(tableId);
+    
+    // Ensure uniqueness
+    let attempts = 0;
+    while (attempts < 10) {
+      const existing = await db
+        .select()
+        .from(tables)
+        .where(eq(tables.short_code, short_code))
+        .limit(1);
+      
+      if (existing.length === 0) break;
+      short_code = this.generateShortCode(tableId);
+      attempts++;
+    }
 
     // Update table record
     await db
       .update(tables)
       .set({
         qr_token,
+        short_code,
         qr_generated_at: new Date().toISOString(),
         qr_expires_at: expires_at.toISOString(),
         updated_at: new Date().toISOString(),
@@ -416,15 +466,32 @@ export class TablesService {
         const pageWidth = doc.page.width;
         const pageHeight = doc.page.height;
         const x = (pageWidth - qrSize) / 2;
-        const y = (pageHeight - qrSize) / 2 - 50;
+        const y = (pageHeight - qrSize) / 2 - 80;
 
         // Add QR code image
         doc.image(qrBuffer, x, y, { width: qrSize, height: qrSize });
 
+        // Add manual entry code below QR code
+        doc.moveDown(13);
+        doc
+          .fontSize(10)
+          .fillColor('white')
+          .text('Or enter code manually:', { align: 'center' });
+        
+        // Display short code if available, otherwise show truncated token
+        const displayCode = table.short_code || qrToken.slice(-8);
+        doc
+          .fontSize(18)
+          .font('Courier-Bold')
+          .fillColor('yellow')
+          .text(displayCode, { align: 'center' });
+
         // Footer
-        doc.moveDown(20);
+        doc.moveDown(2);
         doc
           .fontSize(8)
+          .fillColor('white')
+          .font('Times-Italic')
           .text('Generated on ' + new Date().toLocaleDateString(), {
             align: 'center',
           });
