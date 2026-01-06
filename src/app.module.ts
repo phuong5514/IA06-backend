@@ -10,6 +10,7 @@ import { MenuModule } from './menu/menu.module';
 import { UserModule } from './user/user.module';
 import { OrdersModule } from './orders/orders.module';
 import { WebsocketModule } from './websocket/websocket.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { WebsocketModule } from './websocket/websocket.module';
     UserModule,
     OrdersModule,
     WebsocketModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
