@@ -16,6 +16,7 @@ import {
   Order,
   OrderItem,
   users,
+  tables,
 } from '../db/schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './dto/update-order-status.dto';
@@ -327,9 +328,11 @@ export class OrdersService {
           email: users.email,
           name: users.name,
         },
+        table: tables,
       })
       .from(orders)
       .innerJoin(users, eq(orders.user_id, users.id))
+      .leftJoin(tables, eq(orders.table_id, tables.id))
       .orderBy(desc(orders.created_at));
 
     // Apply status filter if provided
@@ -399,6 +402,10 @@ export class OrdersService {
         return {
           ...orderData.order,
           user: orderData.user,
+          table: orderData.table ? {
+            id: orderData.table.id,
+            table_number: orderData.table.table_number,
+          } : null,
           items_count: itemsCount,
           items: itemsWithModifiers,
         };

@@ -119,6 +119,7 @@ export const tables = pgTable('tables', {
   description: text('description'),
   is_active: boolean('is_active').notNull().default(true),
   qr_token: text('qr_token'),
+  short_code: varchar('short_code', { length: 8 }).unique(),
   qr_generated_at: timestamp('qr_generated_at', { mode: 'string' }),
   qr_expires_at: timestamp('qr_expires_at', { mode: 'string' }),
   created_at: timestamp('created_at', { mode: 'string' })
