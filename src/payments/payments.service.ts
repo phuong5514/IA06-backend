@@ -27,7 +27,15 @@ export class PaymentsService {
 
   constructor() {
     this.db = drizzle(process.env.DATABASE_URL);
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
+      throw new Error(
+        'STRIPE_SECRET_KEY is not set in environment variables. Please add it to your .env file.'
+      );
+    }
+    
+    this.stripe = new Stripe(stripeKey, {
       apiVersion: '2025-12-15.clover',
     });
   }
