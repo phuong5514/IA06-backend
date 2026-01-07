@@ -419,21 +419,11 @@ export class UserService {
         console.log(`Created Stripe customer ${customerId} for user ${userId}`);
       }
 
-      // Attach the payment method to the customer if Stripe is configured
-      if (customerId && this.stripe) {
-        try {
-          await this.stripe.paymentMethods.attach(methodData.stripe_payment_method_id, {
-            customer: customerId,
-          });
-          console.log(`Attached payment method ${methodData.stripe_payment_method_id} to customer ${customerId}`);
-        } catch (error: any) {
-          // If payment method is already attached, that's okay
-          if (error.code !== 'resource_already_exists') {
-            console.error('Error attaching payment method to customer:', error);
-            throw error;
-          }
-        }
-      }
+      // Note: We don't attach the payment method to the customer here
+      // because that can cause card_declined errors for test cards.
+      // The attachment will happen when the card is actually used for payment.
+      // This allows users to save cards that might be declined, and the decline
+      // will be handled during the actual payment process.
 
       // If this is set as default, unset all other defaults
       if (methodData.is_default) {
@@ -460,7 +450,12 @@ export class UserService {
       };
     } catch (error) {
       console.error('Error saving payment method:', error);
-      throw new Error('Failed to save payment method');
+      // Log more detailed error information
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      throw new Error(`Failed to save payment method: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

@@ -464,6 +464,7 @@ export class PaymentsService {
       return { success: false, message: 'Payment requires additional action' };
     } catch (error: any) {
       console.error('Error charging saved card:', error);
+      this.logger.error(`Error charging saved card: ${error.message}`, error.stack);
       
       // Update payment status to failed
       await this.db
@@ -475,7 +476,28 @@ export class PaymentsService {
         .where(eq(payments.id, paymentId))
         .execute();
 
-      throw new Error(error.message || 'Failed to process payment');
+      // Handle specific Stripe errors
+      if (error.type === 'StripeCardError') {
+        // Card was declined or has issues
+        if (error.code === 'card_declined') {
+          const declineCode = error.decline_code;
+          if (declineCode === 'insufficient_funds') {
+            throw new BadRequestException('Insufficient funds. Please use another payment method.');
+          } else if (declineCode === 'generic_decline') {
+            throw new BadRequestException('Your card was declined. Please check your card details or try another card.');
+          } else {
+            throw new BadRequestException(`Your card was declined: ${error.message}`);
+          }
+        } else if (error.code === 'expired_card') {
+          throw new BadRequestException('Your card has expired. Please update your card or use another payment method.');
+        } else if (error.code === 'incorrect_cvc') {
+          throw new BadRequestException('Incorrect CVC code. Please check your card details.');
+        } else {
+          throw new BadRequestException(error.message || 'Card payment failed');
+        }
+      }
+
+      throw new BadRequestException(error.message || 'Failed to process payment');
     }
   }
 
