@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, inArray } from 'drizzle-orm';
@@ -22,6 +23,7 @@ import Stripe from 'stripe';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
   private db;
   private stripe: Stripe;
 
@@ -132,83 +134,98 @@ export class PaymentsService {
    * Create a payment (initiate payment process)
    */
   async createPayment(userId: string, createPaymentDto: CreatePaymentDto) {
-    const { orderIds, paymentMethod, notes } = createPaymentDto;
+    try {
+      const { orderIds, paymentMethod, notes } = createPaymentDto;
 
-    // Validate all orders exist and belong to the user
-    const ordersToProcess = await this.db
-      .select()
-      .from(orders)
-      .where(
-        and(
-          inArray(orders.id, orderIds),
-          eq(orders.user_id, userId),
-          eq(orders.status, 'served')
+      this.logger.log(`Creating payment for user ${userId}, orders: ${orderIds}, method: ${paymentMethod}`);
+
+      // Validate all orders exist and belong to the user
+      const ordersToProcess = await this.db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            inArray(orders.id, orderIds),
+            eq(orders.user_id, userId),
+            eq(orders.status, 'served')
+          )
         )
-      )
-      .execute();
+        .execute();
 
-    if (ordersToProcess.length !== orderIds.length) {
-      throw new BadRequestException(
-        'Some orders are invalid, do not belong to you, or are not in served status'
+      if (ordersToProcess.length !== orderIds.length) {
+        this.logger.warn(`Invalid orders: expected ${orderIds.length}, found ${ordersToProcess.length}`);
+        throw new BadRequestException(
+          'Some orders are invalid, do not belong to you, or are not in served status'
+        );
+      }
+
+      // Check if any order is already paid
+      const alreadyPaid = await this.db
+        .select()
+        .from(paymentOrders)
+        .innerJoin(payments, eq(paymentOrders.payment_id, payments.id))
+        .where(
+          and(
+            inArray(paymentOrders.order_id, orderIds),
+            eq(payments.payment_status, 'completed')
+          )
+        )
+        .execute();
+
+      if (alreadyPaid.length > 0) {
+        this.logger.warn(`Some orders already paid: ${alreadyPaid.map(p => p.payment_orders.order_id)}`);
+        throw new BadRequestException('Some orders have already been paid');
+      }
+
+      // Calculate total amount
+      const totalAmount = ordersToProcess.reduce(
+        (sum, order) => sum + parseFloat(order.total_amount),
+        0
       );
-    }
 
-    // Check if any order is already paid
-    const alreadyPaid = await this.db
-      .select()
-      .from(paymentOrders)
-      .innerJoin(payments, eq(paymentOrders.payment_id, payments.id))
-      .where(
-        and(
-          inArray(paymentOrders.order_id, orderIds),
-          eq(payments.payment_status, 'completed')
+      // Get table_id from first order (assuming all orders are from same table)
+      const tableId = ordersToProcess[0]?.table_id || null;
+
+      if (!tableId) {
+        this.logger.warn('No table_id found for orders');
+      }
+
+      // Create payment record
+      const [payment] = await this.db
+        .insert(payments)
+        .values({
+          user_id: userId,
+          table_id: tableId,
+          total_amount: totalAmount.toFixed(2),
+          payment_method: paymentMethod,
+          payment_status: 'pending',
+          notes,
+        })
+        .returning()
+        .execute();
+
+      // Link orders to payment
+      await this.db
+        .insert(paymentOrders)
+        .values(
+          orderIds.map(orderId => ({
+            payment_id: payment.id,
+            order_id: orderId,
+          }))
         )
-      )
-      .execute();
+        .execute();
 
-    if (alreadyPaid.length > 0) {
-      throw new BadRequestException('Some orders have already been paid');
+      this.logger.log(`Payment created successfully: ${payment.id}`);
+
+      return {
+        payment,
+        totalAmount: totalAmount.toFixed(2),
+        orderCount: orderIds.length,
+      };
+    } catch (error) {
+      this.logger.error(`Error creating payment: ${error.message}`, error.stack);
+      throw error;
     }
-
-    // Calculate total amount
-    const totalAmount = ordersToProcess.reduce(
-      (sum, order) => sum + parseFloat(order.total_amount),
-      0
-    );
-
-    // Get table_id from first order (assuming all orders are from same table)
-    const tableId = ordersToProcess[0].table_id;
-
-    // Create payment record
-    const [payment] = await this.db
-      .insert(payments)
-      .values({
-        user_id: userId,
-        table_id: tableId,
-        total_amount: totalAmount.toFixed(2),
-        payment_method: paymentMethod,
-        payment_status: 'pending',
-        notes,
-      })
-      .returning()
-      .execute();
-
-    // Link orders to payment
-    await this.db
-      .insert(paymentOrders)
-      .values(
-        orderIds.map(orderId => ({
-          payment_id: payment.id,
-          order_id: orderId,
-        }))
-      )
-      .execute();
-
-    return {
-      payment,
-      totalAmount: totalAmount.toFixed(2),
-      orderCount: orderIds.length,
-    };
   }
 
   /**
@@ -331,16 +348,76 @@ export class PaymentsService {
     }
 
     try {
-      // Create a payment intent with the saved payment method
+      // Get or create Stripe customer for this user
+      const [user] = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .execute();
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      let customerId = user.stripe_customer_id;
+
+      // Create Stripe customer if it doesn't exist
+      if (!customerId) {
+        const customer = await this.stripe.customers.create({
+          email: user.email,
+          metadata: {
+            userId: userId,
+          },
+        });
+        customerId = customer.id;
+
+        // Save the customer ID to the user record
+        await this.db
+          .update(users)
+          .set({ stripe_customer_id: customerId })
+          .where(eq(users.id, userId))
+          .execute();
+
+        this.logger.log(`Created Stripe customer ${customerId} for user ${userId}`);
+      }
+
+      // Retrieve the payment method to check if it's attached to customer
+      let paymentMethod;
+      try {
+        paymentMethod = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+      } catch (error: any) {
+        this.logger.error(`Payment method ${paymentMethodId} not found in Stripe: ${error.message}`);
+        throw new Error('Payment method not found. Please add your card again.');
+      }
+      
+      // Attach payment method to customer if not already attached
+      if (paymentMethod.customer !== customerId) {
+        try {
+          await this.stripe.paymentMethods.attach(paymentMethodId, {
+            customer: customerId,
+          });
+          this.logger.log(`Attached payment method ${paymentMethodId} to customer ${customerId}`);
+        } catch (error: any) {
+          this.logger.error(`Failed to attach payment method: ${error.message}`);
+          // If the payment method was already used without a customer, we can't reuse it
+          if (error.code === 'resource_missing' || error.message.includes('previously used')) {
+            throw new Error('This payment method cannot be reused. Please add your card again.');
+          }
+          throw error;
+        }
+      }
+
+      // Create a payment intent with the saved payment method and customer
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: Math.round(parseFloat(payment.total_amount) * 100), // Convert to cents
         currency: 'usd',
+        customer: customerId,
         payment_method: paymentMethodId,
         confirm: true, // Automatically confirm the payment
-        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders`,
-        automatic_payment_methods: {
-          enabled: true,
-          allow_redirects: 'never',
+        off_session: true, // Indicate that customer is not present
+        metadata: {
+          paymentId: paymentId.toString(),
+          userId: userId,
         },
       });
 

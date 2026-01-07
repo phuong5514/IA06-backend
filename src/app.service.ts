@@ -14,6 +14,7 @@ import {
 } from './db/schema';
 import { AuthService, TokenPair } from './auth/auth.service';
 import * as bcrypt from 'bcrypt';
+import Stripe from 'stripe';
 
 @Injectable()
 export class AppService {
@@ -25,9 +26,17 @@ export class AppService {
 @Injectable()
 export class UserService {
   private db;
+  private stripe: Stripe;
 
   constructor(private authService: AuthService) {
     this.db = drizzle(process.env.DATABASE_URL);
+    
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (stripeKey) {
+      this.stripe = new Stripe(stripeKey, {
+        apiVersion: '2025-12-15.clover',
+      });
+    }
   }
 
   async registerUser(
@@ -377,6 +386,55 @@ export class UserService {
     }
   ) {
     try {
+      // Get or create Stripe customer for this user
+      const [user] = await this.db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .execute();
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      let customerId = user.stripe_customer_id;
+
+      // Create Stripe customer if it doesn't exist
+      if (!customerId && this.stripe) {
+        const customer = await this.stripe.customers.create({
+          email: user.email,
+          metadata: {
+            userId: userId,
+          },
+        });
+        customerId = customer.id;
+
+        // Save the customer ID to the user record
+        await this.db
+          .update(usersTable)
+          .set({ stripe_customer_id: customerId })
+          .where(eq(usersTable.id, userId))
+          .execute();
+
+        console.log(`Created Stripe customer ${customerId} for user ${userId}`);
+      }
+
+      // Attach the payment method to the customer if Stripe is configured
+      if (customerId && this.stripe) {
+        try {
+          await this.stripe.paymentMethods.attach(methodData.stripe_payment_method_id, {
+            customer: customerId,
+          });
+          console.log(`Attached payment method ${methodData.stripe_payment_method_id} to customer ${customerId}`);
+        } catch (error: any) {
+          // If payment method is already attached, that's okay
+          if (error.code !== 'resource_already_exists') {
+            console.error('Error attaching payment method to customer:', error);
+            throw error;
+          }
+        }
+      }
+
       // If this is set as default, unset all other defaults
       if (methodData.is_default) {
         await this.db
