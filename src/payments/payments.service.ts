@@ -312,6 +312,97 @@ export class PaymentsService {
   }
 
   /**
+   * Charge using saved payment method
+   */
+  async chargeSavedCard(userId: string, paymentId: number, paymentMethodId: string) {
+    // Get payment details
+    const [payment] = await this.db
+      .select()
+      .from(payments)
+      .where(eq(payments.id, paymentId))
+      .execute();
+
+    if (!payment) {
+      throw new Error('Payment not found');
+    }
+
+    if (payment.payment_status !== 'pending') {
+      throw new Error('Payment already processed');
+    }
+
+    try {
+      // Create a payment intent with the saved payment method
+      const paymentIntent = await this.stripe.paymentIntents.create({
+        amount: Math.round(parseFloat(payment.total_amount) * 100), // Convert to cents
+        currency: 'usd',
+        payment_method: paymentMethodId,
+        confirm: true, // Automatically confirm the payment
+        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders`,
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'never',
+        },
+      });
+
+      // Update payment with intent ID
+      await this.db
+        .update(payments)
+        .set({
+          stripe_payment_intent_id: paymentIntent.id,
+          updated_at: new Date().toISOString(),
+        })
+        .where(eq(payments.id, paymentId))
+        .execute();
+
+      if (paymentIntent.status === 'succeeded') {
+        // Update payment status
+        await this.db
+          .update(payments)
+          .set({
+            payment_status: 'completed',
+            updated_at: new Date().toISOString(),
+          })
+          .where(eq(payments.id, paymentId))
+          .execute();
+
+        // Update order status to completed
+        const orderIdsToUpdate = await this.db
+          .select({ orderId: paymentOrders.order_id })
+          .from(paymentOrders)
+          .where(eq(paymentOrders.payment_id, paymentId))
+          .execute();
+
+        await this.db
+          .update(orders)
+          .set({
+            status: 'completed',
+            updated_at: new Date().toISOString(),
+          })
+          .where(inArray(orders.id, orderIdsToUpdate.map(o => o.orderId)))
+          .execute();
+
+        return { success: true, message: 'Payment completed successfully' };
+      }
+
+      return { success: false, message: 'Payment requires additional action' };
+    } catch (error: any) {
+      console.error('Error charging saved card:', error);
+      
+      // Update payment status to failed
+      await this.db
+        .update(payments)
+        .set({
+          payment_status: 'failed',
+          updated_at: new Date().toISOString(),
+        })
+        .where(eq(payments.id, paymentId))
+        .execute();
+
+      throw new Error(error.message || 'Failed to process payment');
+    }
+  }
+
+  /**
    * Process cash payment (for waiters)
    */
   async processCashPayment(
