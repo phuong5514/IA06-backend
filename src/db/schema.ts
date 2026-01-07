@@ -27,6 +27,7 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 50 }).notNull().default('customer'),
   name: varchar('name', { length: 200 }),
   phone: varchar('phone', { length: 20 }),
+  stripe_customer_id: varchar('stripe_customer_id', { length: 255 }),
   is_active: boolean('is_active').default(true).notNull(),
   email_verified: boolean('email_verified').default(false).notNull(),
   last_login: timestamp('last_login', { mode: 'string' }),
@@ -313,3 +314,45 @@ export const orderItemModifiers = pgTable('order_item_modifiers', {
 
 export type OrderItemModifier = typeof orderItemModifiers.$inferSelect;
 export type NewOrderItemModifier = typeof orderItemModifiers.$inferInsert;
+
+// User Preferences
+export const userPreferences = pgTable('user_preferences', {
+  id: serial('id').primaryKey(),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' })
+    .unique(),
+  dietary_tags: text('dietary_tags').array().notNull().default(sql`'{}'`),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type UserPreference = typeof userPreferences.$inferSelect;
+export type NewUserPreference = typeof userPreferences.$inferInsert;
+
+// Saved Payment Methods
+export const savedPaymentMethods = pgTable('saved_payment_methods', {
+  id: serial('id').primaryKey(),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  stripe_payment_method_id: text('stripe_payment_method_id').notNull(),
+  card_brand: varchar('card_brand', { length: 50 }),
+  last4: varchar('last4', { length: 4 }).notNull(),
+  exp_month: integer('exp_month').notNull(),
+  exp_year: integer('exp_year').notNull(),
+  is_default: boolean('is_default').notNull().default(false),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type SavedPaymentMethod = typeof savedPaymentMethods.$inferSelect;
+export type NewSavedPaymentMethod = typeof savedPaymentMethods.$inferInsert;

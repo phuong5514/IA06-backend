@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   Inject,
+  Param,
 } from '@nestjs/common';
 import express from 'express';
 import { UserService } from '../app.service';
@@ -116,6 +117,88 @@ export class UserController {
   async getProfile(@Req() req: express.Request) {
     const user = req.user as any;
     return { user };
+  }
+
+  // Get user's order history (both paid and unpaid)
+  @Get('orders')
+  @UseGuards(JwtAuthGuard)
+  async getUserOrders(@Req() req: express.Request) {
+    const userId = (req.user as any).userId;
+    return this.userService.getUserOrders(userId);
+  }
+
+  // Get user's food preferences
+  @Get('preferences')
+  @UseGuards(JwtAuthGuard)
+  async getUserPreferences(@Req() req: express.Request) {
+    const userId = (req.user as any).userId;
+    return this.userService.getUserPreferences(userId);
+  }
+
+  // Update user's food preferences
+  @Post('preferences')
+  @UseGuards(JwtAuthGuard)
+  async updateUserPreferences(
+    @Req() req: express.Request,
+    @Body() body: { dietary_tags: string[] }
+  ) {
+    const userId = (req.user as any).userId;
+    return this.userService.updateUserPreferences(userId, body.dietary_tags);
+  }
+
+  // Get available dietary tags from menu items
+  @Get('available-tags')
+  @UseGuards(JwtAuthGuard)
+  async getAvailableTags() {
+    return this.userService.getAvailableDietaryTags();
+  }
+
+  // Get user's saved payment methods
+  @Get('payment-methods')
+  @UseGuards(JwtAuthGuard)
+  async getPaymentMethods(@Req() req: express.Request) {
+    const userId = (req.user as any).userId;
+    return this.userService.getSavedPaymentMethods(userId);
+  }
+
+  // Save a new payment method
+  @Post('payment-methods')
+  @UseGuards(JwtAuthGuard)
+  async savePaymentMethod(
+    @Req() req: express.Request,
+    @Body() body: {
+      stripe_payment_method_id: string;
+      card_brand: string;
+      last4: string;
+      exp_month: number;
+      exp_year: number;
+      is_default?: boolean;
+    }
+  ) {
+    const userId = (req.user as any).userId;
+    return this.userService.savePaymentMethod(userId, body);
+  }
+
+  // Delete a saved payment method
+  @Post('payment-methods/:id/delete')
+  @UseGuards(JwtAuthGuard)
+  async deletePaymentMethod(
+    @Req() req: express.Request,
+    @Param('id') paymentMethodId: string
+  ) {
+    const userId = (req.user as any).userId;
+    return this.userService.deletePaymentMethod(userId, parseInt(paymentMethodId));
+  }
+
+  // Set default payment method
+  @Post('payment-methods/:id/set-default')
+  @UseGuards(JwtAuthGuard)
+  async setDefaultPaymentMethod(
+    @Req() req: express.Request,
+    @Param('id') paymentMethodId: string
+  ) {
+    const userId = (req.user as any).userId;
+    return this.userService.setDefaultPaymentMethod(userId, parseInt(paymentMethodId));
   }
 
   @Post('logout')

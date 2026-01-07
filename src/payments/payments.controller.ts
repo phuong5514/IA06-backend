@@ -62,6 +62,20 @@ export class PaymentsController {
   }
 
   /**
+   * Charge using saved payment method
+   * POST /api/payments/:id/charge-saved-card
+   */
+  @Post(':id/charge-saved-card')
+  async chargeSavedCard(
+    @Request() req,
+    @Param('id', ParseIntPipe) paymentId: number,
+    @Body('paymentMethodId') paymentMethodId: string
+  ) {
+    const userId = req.user.userId;
+    return this.paymentsService.chargeSavedCard(userId, paymentId, paymentMethodId);
+  }
+
+  /**
    * Process cash payment (waiter only)
    * POST /api/payments/cash/process
    */
