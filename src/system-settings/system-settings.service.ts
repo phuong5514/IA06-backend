@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import * as schema from '../db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
+import { db } from '../db';
+import * as schema from '../db/schema';
 
 export interface UpdateSettingDto {
   key: string;
@@ -16,23 +16,16 @@ export interface BulkUpdateSettingsDto {
 
 @Injectable()
 export class SystemSettingsService {
-  private db;
-
-  constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
-  }
-
   /**
    * Get all system settings
    */
   async getAllSettings(includePrivate = false) {
-    let query = this.db.select().from(schema.systemSettings);
-
-    if (!includePrivate) {
-      query = query.where(eq(schema.systemSettings.is_public, true));
-    }
-
-    const settings = await query;
+    const settings = includePrivate
+      ? await db.select().from(schema.systemSettings)
+      : await db
+          .select()
+          .from(schema.systemSettings)
+          .where(eq(schema.systemSettings.is_public, true));
 
     // Convert to key-value object for easier use
     const settingsObject = settings.reduce((acc, setting) => {
@@ -55,28 +48,29 @@ export class SystemSettingsService {
    * Get settings by category
    */
   async getSettingsByCategory(category: string, includePrivate = false) {
-    let query = this.db
-      .select()
-      .from(schema.systemSettings)
-      .where(eq(schema.systemSettings.category, category));
-
-    if (!includePrivate) {
-      query = query.where(
-        and(
-          eq(schema.systemSettings.category, category),
-          eq(schema.systemSettings.is_public, true),
-        ),
-      );
+    if (includePrivate) {
+      return await db
+        .select()
+        .from(schema.systemSettings)
+        .where(eq(schema.systemSettings.category, category));
+    } else {
+      return await db
+        .select()
+        .from(schema.systemSettings)
+        .where(
+          and(
+            eq(schema.systemSettings.category, category),
+            eq(schema.systemSettings.is_public, true),
+          ),
+        );
     }
-
-    return await query;
   }
 
   /**
    * Get a single setting by key
    */
   async getSettingByKey(key: string): Promise<schema.SystemSetting | null> {
-    const [setting] = await this.db
+    const [setting] = await db
       .select()
       .from(schema.systemSettings)
       .where(eq(schema.systemSettings.key, key))
@@ -103,7 +97,7 @@ export class SystemSettingsService {
       throw new NotFoundException(`Setting with key '${dto.key}' not found`);
     }
 
-    const [updated] = await this.db
+    const [updated] = await db
       .update(schema.systemSettings)
       .set({
         value: dto.value,
@@ -123,7 +117,7 @@ export class SystemSettingsService {
     const keys = dto.settings.map((s) => s.key);
 
     // Verify all keys exist
-    const existing = await this.db
+    const existing = await db
       .select()
       .from(schema.systemSettings)
       .where(inArray(schema.systemSettings.key, keys));
@@ -162,7 +156,7 @@ export class SystemSettingsService {
       throw new BadRequestException(`Setting with key '${data.key}' already exists`);
     }
 
-    const [created] = await this.db
+    const [created] = await db
       .insert(schema.systemSettings)
       .values(data)
       .returning();
@@ -180,7 +174,7 @@ export class SystemSettingsService {
       throw new NotFoundException(`Setting with key '${key}' not found`);
     }
 
-    await this.db
+    await db
       .delete(schema.systemSettings)
       .where(eq(schema.systemSettings.key, key));
   }
@@ -189,7 +183,7 @@ export class SystemSettingsService {
    * Get public settings (for unauthenticated access)
    */
   async getPublicSettings() {
-    const settings = await this.db
+    const settings = await db
       .select()
       .from(schema.systemSettings)
       .where(eq(schema.systemSettings.is_public, true));
