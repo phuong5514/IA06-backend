@@ -25,6 +25,9 @@ export class RegistrationService {
   ): Promise<{ message: string; userId: string }> {
     const { email, password, name, phone } = registerDto;
 
+    // Validate email format more strictly
+    this.validateEmail(email);
+
     // Check if user already exists
     const existingUsers = await db
       .select()
@@ -33,7 +36,7 @@ export class RegistrationService {
       .limit(1);
 
     if (existingUsers.length > 0) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException('An account with this email already exists. Please use a different email or try logging in.');
     }
 
     // Validate password strength
@@ -45,6 +48,12 @@ export class RegistrationService {
     // Check if email verification is enabled
     const emailEnabled = process.env.SMTP_HOST && process.env.SMTP_USER;
 
+    if (!emailEnabled) {
+      throw new BadRequestException(
+        'Email service is not configured. Please contact the administrator.',
+      );
+    }
+
     // Create user with customer role by default
     const [newUser] = await db
       .insert(users)
@@ -55,37 +64,27 @@ export class RegistrationService {
         phone: phone || null,
         role: 'customer',
         is_active: true,
-        email_verified: !emailEnabled, // Auto-verify if email is disabled
+        email_verified: false, // Require email verification
       })
       .returning({ id: users.id });
 
-    // Generate and send verification token only if email is enabled
-    if (emailEnabled) {
-      // Generate verification token
-      const verificationToken = randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Generate verification token
+    const verificationToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-      // Store verification token
-      await db.insert(emailVerificationTokensTable).values({
-        userId: newUser.id,
-        token: verificationToken,
-        expiresAt: expiresAt,
-        used: false,
-      });
+    // Store verification token
+    await db.insert(emailVerificationTokensTable).values({
+      userId: newUser.id,
+      token: verificationToken,
+      expiresAt: expiresAt,
+      used: false,
+    });
 
-      // Send verification email
-      try {
-        await this.emailService.sendVerificationEmail(email, verificationToken);
-      } catch (error) {
-        // Log error but don't fail registration
-        console.error('Failed to send verification email:', error);
-      }
-    }
+    // Send verification email
+    await this.emailService.sendVerificationEmail(email, verificationToken);
 
     return {
-      message: emailEnabled
-        ? 'Registration successful. Please check your email to verify your account.'
-        : 'Registration successful. Email verification is disabled.',
+      message: 'Registration successful! Please check your email inbox (and spam folder) for a verification link. The link will expire in 24 hours.',
       userId: newUser.id,
     };
   }
@@ -102,15 +101,32 @@ export class RegistrationService {
       throw new BadRequestException('Invalid verification token');
     }
 
-    // Check if already used
-    if (verificationRecord.used) {
-      throw new BadRequestException('Verification token has already been used');
-    }
-
     // Check if expired
     if (new Date(verificationRecord.expiresAt) < new Date()) {
       throw new BadRequestException('Verification token has expired');
     }
+
+    // Check if already used
+    if (verificationRecord.used) {
+      // Check if user is actually verified
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, verificationRecord.userId))
+        .limit(1);
+
+      if (user && user.email_verified) {
+        return { message: 'Email is already verified. You can log in now.' };
+      }
+      
+      throw new BadRequestException('Verification token has already been used');
+    }
+
+    // Mark token as used first to prevent race conditions
+    await db
+      .update(emailVerificationTokensTable)
+      .set({ used: true })
+      .where(eq(emailVerificationTokensTable.id, verificationRecord.id));
 
     // Update user email_verified status
     await db
@@ -121,13 +137,7 @@ export class RegistrationService {
       })
       .where(eq(users.id, verificationRecord.userId));
 
-    // Mark token as used
-    await db
-      .update(emailVerificationTokensTable)
-      .set({ used: true })
-      .where(eq(emailVerificationTokensTable.id, verificationRecord.id));
-
-    return { message: 'Email verified successfully' };
+    return { message: 'Email verified successfully! You can now log in.' };
   }
 
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
@@ -281,6 +291,58 @@ export class RegistrationService {
       .where(eq(passwordResetTokensTable.id, resetRecord.id));
 
     return { message: 'Password reset successfully' };
+  }
+
+  private validateEmail(email: string): void {
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new BadRequestException('Invalid email format');
+    }
+
+    // Check email length
+    if (email.length > 254) {
+      throw new BadRequestException('Email address is too long');
+    }
+
+    // Extract domain
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (!domain) {
+      throw new BadRequestException('Invalid email format');
+    }
+
+    // Block common disposable email domains
+    const disposableDomains = [
+      'tempmail.com',
+      '10minutemail.com',
+      'guerrillamail.com',
+      'mailinator.com',
+      'throwaway.email',
+      'temp-mail.org',
+      'fakeinbox.com',
+    ];
+
+    if (disposableDomains.includes(domain)) {
+      throw new BadRequestException(
+        'Disposable email addresses are not allowed. Please use a permanent email address.',
+      );
+    }
+
+    // Check for common typos in popular domains
+    const commonDomains = {
+      'gmial.com': 'gmail.com',
+      'gmai.com': 'gmail.com',
+      'yahooo.com': 'yahoo.com',
+      'yaho.com': 'yahoo.com',
+      'hotmial.com': 'hotmail.com',
+      'outlok.com': 'outlook.com',
+    };
+
+    if (commonDomains[domain]) {
+      throw new BadRequestException(
+        `Did you mean ${email.split('@')[0]}@${commonDomains[domain]}? Please check your email address.`,
+      );
+    }
   }
 
   private validatePassword(password: string): void {

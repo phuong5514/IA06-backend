@@ -9,6 +9,7 @@ import {
   HttpCode,
   Inject,
   Param,
+  Put,
 } from '@nestjs/common';
 import express from 'express';
 import { UserService } from '../app.service';
@@ -18,6 +19,9 @@ import { LoginDto } from '../auth/dto/login.dto';
 import { RegisterDto } from '../auth/dto/register.dto';
 import { VerifyEmailDto } from '../auth/dto/verify-email.dto';
 import { RegistrationService } from '../auth/registration.service';
+import { GcsService } from '../menu/gcs.service';
+import * as path from 'path';
+import sharp from 'sharp';
 
 @Controller('user')
 export class UserController {
@@ -25,6 +29,7 @@ export class UserController {
     private readonly userService: UserService,
     @Inject(RegistrationService)
     private readonly registrationService: RegistrationService,
+    private readonly gcsService: GcsService,
   ) {}
 
   @Post('register')
@@ -115,8 +120,103 @@ export class UserController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getProfile(@Req() req: express.Request) {
-    const user = req.user as any;
-    return { user };
+    const userId = (req.user as any).userId;
+    return this.userService.getUserProfile(userId);
+  }
+
+  // Update user profile
+  @Put('profile')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(
+    @Req() req: express.Request,
+    @Body() body: { name?: string; phone?: string; profile_image_url?: string }
+  ) {
+    const userId = (req.user as any).userId;
+    return this.userService.updateUserProfile(userId, body);
+  }
+
+  // Generate signed URL for profile image upload
+  @Post('profile/image/upload-url')
+  @UseGuards(JwtAuthGuard)
+  async getProfileImageUploadUrl(
+    @Body() body: { fileName: string; contentType: string },
+  ) {
+    // Generate unique filename
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    const extension = path.extname(body.fileName);
+    const baseName = `profile_images/${timestamp}_${random}${extension}`;
+
+    const signedUrl = await this.gcsService.generateSignedUploadUrl(
+      baseName,
+      body.contentType,
+    );
+
+    return {
+      signedUrl,
+      fileName: baseName,
+    };
+  }
+
+  // Confirm profile image upload and process image
+  @Post('profile/image/confirm')
+  @UseGuards(JwtAuthGuard)
+  async confirmProfileImageUpload(
+    @Body() body: { gcsFileName: string },
+    @Req() req: express.Request,
+  ) {
+    try {
+      const userId = (req.user as any).userId;
+
+      // Download image from GCS for processing
+      const bucket = this.gcsService.getBucket();
+      const file = bucket.file(body.gcsFileName);
+      const [buffer] = await file.download();
+
+      // Process image with Sharp
+      const sharpInstance = sharp(buffer);
+
+      // Generate processed filenames
+      const baseName = path.parse(body.gcsFileName).name;
+      const displayName = `profile_images/${baseName}_display.jpg`;
+
+      // Create display image (500x500, cover to maintain aspect ratio)
+      const displayBuffer = await sharpInstance
+        .resize(500, 500, {
+          fit: 'cover',
+          position: 'center',
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+
+      // Upload processed image to GCS
+      const displayFile = bucket.file(displayName);
+      await displayFile.save(displayBuffer, {
+        metadata: {
+          contentType: 'image/jpeg',
+        },
+      });
+
+      // Generate public URL
+      const displayUrl = this.gcsService.getPublicUrl(displayName);
+
+      // Update user profile with new image URL
+      await this.userService.updateUserProfile(userId, {
+        profile_image_url: displayUrl,
+      });
+
+      // Delete original upload
+      await this.gcsService.deleteFile(body.gcsFileName);
+
+      return {
+        success: true,
+        url: displayUrl,
+        message: 'Profile image uploaded successfully',
+      };
+    } catch (error) {
+      console.error('Error processing profile image:', error);
+      throw new Error(`Failed to process profile image: ${error.message}`);
+    }
   }
 
   // Get user's order history (both paid and unpaid)

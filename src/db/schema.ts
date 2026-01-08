@@ -27,6 +27,7 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 50 }).notNull().default('customer'),
   name: varchar('name', { length: 200 }),
   phone: varchar('phone', { length: 20 }),
+  profile_image_url: varchar('profile_image_url', { length: 500 }),
   stripe_customer_id: varchar('stripe_customer_id', { length: 255 }),
   is_active: boolean('is_active').default(true).notNull(),
   email_verified: boolean('email_verified').default(false).notNull(),
@@ -399,3 +400,29 @@ export const systemSettings = pgTable('system_settings', {
 
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type NewSystemSetting = typeof systemSettings.$inferInsert;
+
+// Menu Item Reviews
+export const menuItemReviews = pgTable('menu_item_reviews', {
+  id: serial('id').primaryKey(),
+  menu_item_id: integer('menu_item_id')
+    .notNull()
+    .references(() => menuItems.id, { onDelete: 'cascade' }),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  rating: integer('rating').notNull(), // 1-5 stars
+  comment: text('comment'),
+  admin_response: text('admin_response'),
+  admin_responded_at: timestamp('admin_responded_at', { mode: 'string' }),
+  admin_responded_by: uuid('admin_responded_by')
+    .references(() => users.id, { onDelete: 'set null' }),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type MenuItemReview = typeof menuItemReviews.$inferSelect;
+export type NewMenuItemReview = typeof menuItemReviews.$inferInsert;
