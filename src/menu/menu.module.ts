@@ -9,6 +9,8 @@ import { ModifiersController } from './modifiers.controller';
 import { ModifiersService } from './modifiers.service';
 import { ExportController } from './export.controller';
 import { ImportController } from './import.controller';
+import { ReviewsController } from './reviews.controller';
+import { ReviewsService } from './reviews.service';
 
 @Module({
   controllers: [
@@ -17,6 +19,7 @@ import { ImportController } from './import.controller';
     ModifiersController,
     ExportController,
     ImportController,
+    ReviewsController,
   ],
   providers: [
     CategoriesService,
@@ -24,6 +27,7 @@ import { ImportController } from './import.controller';
     ImageService,
     GcsService,
     ModifiersService,
+    ReviewsService,
   ],
   exports: [
     CategoriesService,
@@ -31,6 +35,7 @@ import { ImportController } from './import.controller';
     ImageService,
     GcsService,
     ModifiersService,
+    ReviewsService,
   ],
 })
 export class MenuModule {}

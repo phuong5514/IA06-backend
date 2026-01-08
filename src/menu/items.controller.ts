@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ItemsService } from './items.service';
 import { ImageService } from './image.service';
 import { GcsService } from './gcs.service';
+import { ReviewsService } from './reviews.service';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MenuItem } from '../db/schema';
@@ -26,6 +27,7 @@ export class ItemsController {
     private readonly itemsService: ItemsService,
     private readonly imageService: ImageService,
     private readonly gcsService: GcsService,
+    private readonly reviewsService: ReviewsService,
   ) {}
 
   @Get()
@@ -36,13 +38,13 @@ export class ItemsController {
     @Query('sort_order') sortOrder?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-  ): Promise<{ items: MenuItem[]; total: number; page: number; limit: number }> {
+  ): Promise<{ items: any[]; total: number; page: number; limit: number }> {
     const categoryIdNum = categoryId ? parseInt(categoryId, 10) : undefined;
     const availableOnlyBool = availableOnly !== 'false';
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 50;
 
-    return this.itemsService.findAll(
+    const result = await this.itemsService.findAll(
       categoryIdNum,
       availableOnlyBool,
       sortBy,
@@ -50,11 +52,37 @@ export class ItemsController {
       pageNum,
       limitNum
     );
+
+    // Get ratings for all items
+    const itemIds = result.items.map(item => item.id);
+    const ratings = await this.reviewsService.getMultipleAverageRatings(itemIds);
+    
+    // Merge ratings into items
+    const itemsWithRatings = result.items.map(item => {
+      const rating = ratings.find(r => r.menu_item_id === item.id);
+      return {
+        ...item,
+        average_rating: rating?.average_rating || 0,
+        review_count: rating?.review_count || 0,
+      };
+    });
+
+    return {
+      ...result,
+      items: itemsWithRatings,
+    };
   }
 
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.itemsService.findOne(id);
+    const item = await this.itemsService.findOne(id);
+    const rating = await this.reviewsService.getAverageRating(id);
+    
+    return {
+      ...item,
+      average_rating: rating.average_rating,
+      review_count: rating.review_count,
+    };
   }
 
   @Post()
