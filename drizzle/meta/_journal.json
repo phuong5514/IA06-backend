@@ -29,6 +29,13 @@
       "when": 1767337049800,
       "tag": "0003_long_ricochet",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1767897266748,
+      "tag": "0004_flaky_kinsey_walden",
+      "breakpoints": true
     }
   ]
 }

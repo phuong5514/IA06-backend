@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { GoogleStrategy } from './google.strategy';
 import { AuthController } from './auth.controller';
 import { RegistrationService } from './registration.service';
 import { UserService } from '../app.service';
@@ -63,7 +64,7 @@ const JWT_ACCESS_SECRET =
       signOptions: { expiresIn: '15m' },
     }),
   ],
-  providers: [AuthService, JwtStrategy, RegistrationService, UserService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, RegistrationService, UserService],
   controllers: [AuthController],
   exports: [AuthService, JwtStrategy, PassportModule, RegistrationService],
 })
