@@ -356,3 +356,46 @@ export const savedPaymentMethods = pgTable('saved_payment_methods', {
 
 export type SavedPaymentMethod = typeof savedPaymentMethods.$inferSelect;
 export type NewSavedPaymentMethod = typeof savedPaymentMethods.$inferInsert;
+
+// Audit Logs
+export const auditLogs = pgTable('audit_logs', {
+  id: serial('id').primaryKey(),
+  user_id: uuid('user_id')
+    .references(() => users.id, { onDelete: 'set null' }),
+  user_email: varchar('user_email', { length: 255 }),
+  user_role: varchar('user_role', { length: 50 }),
+  action: varchar('action', { length: 100 }).notNull(), // e.g., 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
+  resource_type: varchar('resource_type', { length: 100 }), // e.g., 'ORDER', 'MENU_ITEM', 'TABLE', 'USER'
+  resource_id: varchar('resource_id', { length: 255 }), // ID of the affected resource
+  description: text('description').notNull(),
+  metadata: text('metadata'), // JSON string for additional data
+  ip_address: varchar('ip_address', { length: 45 }),
+  user_agent: text('user_agent'),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
+
+// System Settings
+export const systemSettings = pgTable('system_settings', {
+  id: serial('id').primaryKey(),
+  key: varchar('key', { length: 100 }).notNull().unique(),
+  value: text('value').notNull(),
+  description: text('description'),
+  category: varchar('category', { length: 50 }).notNull().default('general'), // 'general', 'branding', 'workflow', 'advanced'
+  is_public: boolean('is_public').default(false).notNull(), // If true, can be accessed without auth
+  updated_by: uuid('updated_by')
+    .references(() => users.id, { onDelete: 'set null' }),
+  created_at: timestamp('created_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp('updated_at', { mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type NewSystemSetting = typeof systemSettings.$inferInsert;
