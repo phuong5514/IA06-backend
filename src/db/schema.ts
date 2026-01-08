@@ -193,6 +193,8 @@ export const menuItemImages = pgTable('menu_item_images', {
   display_url: text('display_url').notNull(),
   file_size: integer('file_size').notNull(),
   format: varchar('format', { length: 10 }).notNull(),
+  is_thumbnail: boolean('is_thumbnail').default(false).notNull(),
+  display_order: integer('display_order').default(0).notNull(),
   created_at: timestamp('created_at', { mode: 'string' })
     .defaultNow()
     .notNull(),

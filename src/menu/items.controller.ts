@@ -130,4 +130,31 @@ export class ItemsController {
   ) {
     return this.imageService.confirmImageUpload(id, body.gcsFileName);
   }
+
+  @Get(':id/images')
+  async getImages(@Param('id', ParseIntPipe) id: number) {
+    return this.itemsService.getImages(id);
+  }
+
+  @Delete(':id/images/:imageId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
+  async deleteImage(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('imageId', ParseIntPipe) imageId: number,
+  ): Promise<{ message: string }> {
+    await this.itemsService.deleteImage(imageId);
+    return { message: 'Image deleted successfully' };
+  }
+
+  @Put(':id/images/:imageId/set-thumbnail')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
+  async setThumbnail(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('imageId', ParseIntPipe) imageId: number,
+  ): Promise<{ message: string }> {
+    await this.itemsService.setThumbnail(id, imageId);
+    return { message: 'Thumbnail set successfully' };
+  }
 }

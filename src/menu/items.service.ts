@@ -16,7 +16,7 @@ import { ModifiersService } from './modifiers.service';
 
 type NewMenuItemImageInput = Omit<
   MenuItemImage,
-  'id' | 'menu_item_id' | 'created_at'
+  'id' | 'menu_item_id' | 'created_at' | 'is_thumbnail' | 'display_order'
 >;
 
 @Injectable()
@@ -164,17 +164,133 @@ export class ItemsService {
       throw new NotFoundException('Menu item not found');
     }
 
+    // Check if this is the first image for this item
+    const existingImages = await this.db
+      .select()
+      .from(menuItemImages)
+      .where(eq(menuItemImages.menu_item_id, menuItemId))
+      .execute();
+
+    const isFirstImage = existingImages.length === 0;
+    
+    // Get the next display order
+    const maxOrder = existingImages.length > 0 
+      ? Math.max(...existingImages.map(img => img.display_order || 0))
+      : -1;
+
     const [image] = await this.db
       .insert(menuItemImages)
-      .values({ ...imageData, menu_item_id: menuItemId })
+      .values({ 
+        ...imageData, 
+        menu_item_id: menuItemId,
+        is_thumbnail: isFirstImage, // First image is automatically the thumbnail
+        display_order: maxOrder + 1,
+      })
       .returning();
 
-    // Update the menu item's image_url to point to the display image
-    await this.db
-      .update(menuItems)
-      .set({ image_url: image.display_url, updated_at: sql`now()` })
-      .where(eq(menuItems.id, menuItemId));
+    // If this is the first image, update the menu item's image_url
+    if (isFirstImage) {
+      await this.updateMenuItemThumbnail(menuItemId, image.display_url);
+    }
 
     return image;
+  }
+
+  async getImages(menuItemId: number): Promise<MenuItemImage[]> {
+    const images = await this.db
+      .select()
+      .from(menuItemImages)
+      .where(eq(menuItemImages.menu_item_id, menuItemId))
+      .orderBy(desc(menuItemImages.is_thumbnail), asc(menuItemImages.display_order))
+      .execute();
+
+    return images;
+  }
+
+  async deleteImage(imageId: number): Promise<void> {
+    // Get the image first to know which menu item it belongs to
+    const [image] = await this.db
+      .select()
+      .from(menuItemImages)
+      .where(eq(menuItemImages.id, imageId))
+      .execute();
+
+    if (!image) {
+      throw new NotFoundException('Image not found');
+    }
+
+    const wasThumbnail = image.is_thumbnail;
+    const menuItemId = image.menu_item_id;
+
+    // Delete the image
+    await this.db
+      .delete(menuItemImages)
+      .where(eq(menuItemImages.id, imageId))
+      .execute();
+
+    // If this was the thumbnail, set another image as thumbnail
+    if (wasThumbnail) {
+      const remainingImages = await this.db
+        .select()
+        .from(menuItemImages)
+        .where(eq(menuItemImages.menu_item_id, menuItemId))
+        .orderBy(asc(menuItemImages.display_order))
+        .execute();
+
+      if (remainingImages.length > 0) {
+        // Set the first remaining image as thumbnail
+        await this.setThumbnail(menuItemId, remainingImages[0].id);
+      } else {
+        // No images left, clear the menu item's image_url
+        await this.db
+          .update(menuItems)
+          .set({ image_url: null, updated_at: sql`now()` })
+          .where(eq(menuItems.id, menuItemId))
+          .execute();
+      }
+    }
+  }
+
+  async setThumbnail(menuItemId: number, imageId: number): Promise<void> {
+    // Verify the image belongs to this menu item
+    const [image] = await this.db
+      .select()
+      .from(menuItemImages)
+      .where(
+        and(
+          eq(menuItemImages.id, imageId),
+          eq(menuItemImages.menu_item_id, menuItemId),
+        ),
+      )
+      .execute();
+
+    if (!image) {
+      throw new NotFoundException('Image not found or does not belong to this menu item');
+    }
+
+    // Remove thumbnail flag from all images of this item
+    await this.db
+      .update(menuItemImages)
+      .set({ is_thumbnail: false })
+      .where(eq(menuItemImages.menu_item_id, menuItemId))
+      .execute();
+
+    // Set the new thumbnail
+    await this.db
+      .update(menuItemImages)
+      .set({ is_thumbnail: true })
+      .where(eq(menuItemImages.id, imageId))
+      .execute();
+
+    // Update menu item's image_url
+    await this.updateMenuItemThumbnail(menuItemId, image.display_url);
+  }
+
+  private async updateMenuItemThumbnail(menuItemId: number, imageUrl: string): Promise<void> {
+    await this.db
+      .update(menuItems)
+      .set({ image_url: imageUrl, updated_at: sql`now()` })
+      .where(eq(menuItems.id, menuItemId))
+      .execute();
   }
 }
