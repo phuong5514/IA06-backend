@@ -1,9 +1,11 @@
 import nodemailer from 'nodemailer';
+import { SettingsService } from '../settings/settings.service';
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private settingsService: SettingsService;
 
-  constructor(transporter?: nodemailer.Transporter) {
+  constructor(transporter?: nodemailer.Transporter, settingsService?: SettingsService) {
     this.transporter =
       transporter ??
       nodemailer.createTransport({
@@ -13,6 +15,7 @@ export class EmailService {
           ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
           : undefined,
       });
+    this.settingsService = settingsService ?? new SettingsService();
   }
 
   async send(to: string, subject: string, html: string, text?: string) {
@@ -26,9 +29,10 @@ export class EmailService {
   }
 
   async sendVerificationEmail(to: string, token: string) {
+    const settings = await this.settingsService.getSettings();
     const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify?token=${encodeURIComponent(token)}`;
-    const restaurantName = process.env.RESTAURANT_NAME || 'Smart Restaurant';
-    const brandColor = process.env.BRAND_COLOR || '#4F46E5';
+    const restaurantName = settings.restaurantName;
+    const brandColor = settings.themePrimaryColor;
     
     const html = `
       <!DOCTYPE html>
@@ -77,9 +81,10 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(to: string, token: string) {
+    const settings = await this.settingsService.getSettings();
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${encodeURIComponent(token)}`;
-    const restaurantName = process.env.RESTAURANT_NAME || 'Smart Restaurant';
-    const brandColor = process.env.BRAND_COLOR || '#4F46E5';
+    const restaurantName = settings.restaurantName;
+    const brandColor = settings.themePrimaryColor;
     
     const html = `
       <!DOCTYPE html>
