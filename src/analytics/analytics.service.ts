@@ -131,6 +131,42 @@ export class AnalyticsService {
   }
 
   /**
+   * Get hourly order activity
+   */
+  async getHourlyActivity(startDate?: string, endDate?: string) {
+    const whereConditions = [];
+
+    if (startDate) {
+      whereConditions.push(gte(orders.created_at, startDate));
+    }
+    if (endDate) {
+      whereConditions.push(lte(orders.created_at, endDate));
+    }
+
+    const result = await this.db
+      .select({
+        hour: sql<number>`EXTRACT(HOUR FROM DATE_TRUNC('hour', ${orders.created_at}))::INTEGER`,
+        date: sql<string>`DATE_TRUNC('hour', ${orders.created_at})::date`,
+        datetime: sql<string>`DATE_TRUNC('hour', ${orders.created_at})`,
+        total_orders: sql<number>`CAST(COUNT(${orders.id}) AS INTEGER)`,
+        completed_orders: sql<number>`CAST(COUNT(CASE WHEN ${orders.status} = 'completed' THEN 1 END) AS INTEGER)`,
+        cancelled_orders: sql<number>`CAST(COUNT(CASE WHEN ${orders.status} = 'cancelled' THEN 1 END) AS INTEGER)`,
+        pending_orders: sql<number>`CAST(COUNT(CASE WHEN ${orders.status} = 'pending' THEN 1 END) AS INTEGER)`,
+        total_revenue: sql<string>`CAST(SUM(CASE WHEN ${orders.status} = 'completed' THEN ${orders.total_amount} ELSE 0 END) AS DECIMAL(10,2))`,
+        avg_order_value: sql<string>`CAST(AVG(CASE WHEN ${orders.status} = 'completed' THEN ${orders.total_amount} END) AS DECIMAL(10,2))`,
+      })
+      .from(orders)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .groupBy(sql`DATE_TRUNC('hour', ${orders.created_at})`)
+      .orderBy(sql`DATE_TRUNC('hour', ${orders.created_at}) ASC`);
+
+    return {
+      data: result,
+      total_records: result.length,
+    };
+  }
+
+  /**
    * Get monthly revenue
    */
   async getMonthlyRevenue(year: number, month: number) {

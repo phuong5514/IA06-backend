@@ -56,6 +56,18 @@ export class AnalyticsController {
   }
 
   /**
+   * Get hourly order activity/traffic
+   * GET /api/analytics/hourly-activity
+   */
+  @Get('hourly-activity')
+  async getHourlyActivity(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.analyticsService.getHourlyActivity(startDate, endDate);
+  }
+
+  /**
    * Get total revenue for the month
    * GET /api/analytics/monthly-revenue
    */
