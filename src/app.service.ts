@@ -99,6 +99,14 @@ export class UserService {
 
       const user = users[0];
 
+      // Check if email is verified (skip for staff accounts)
+      if (!user.email_verified && user.role === 'customer') {
+        return { 
+          success: false, 
+          message: 'Please verify your email address before logging in. Check your inbox for the verification email.' 
+        };
+      }
+
       // Compare hashed passwords using bcrypt
       const isPasswordValid = await bcrypt.compare(password, user.password);
 
