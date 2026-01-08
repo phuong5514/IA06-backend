@@ -195,4 +195,93 @@ export class AuthService {
       return false;
     }
   }
+
+  async handleGoogleLogin(googleUser: {
+    email: string;
+    name: string;
+    profile_image_url: string | null;
+    oauth_provider: string;
+    oauth_id: string;
+  }): Promise<{ user: any; tokens: TokenPair }> {
+    // Check if user already exists with Google OAuth
+    let users = await this.db
+      .select()
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.oauth_provider, googleUser.oauth_provider),
+          eq(usersTable.oauth_id, googleUser.oauth_id),
+        ),
+      )
+      .limit(1);
+
+    let user: any;
+
+    if (users.length === 0) {
+      // Check if user exists with same email but different provider
+      const emailUsers = await this.db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, googleUser.email))
+        .limit(1);
+
+      if (emailUsers.length > 0) {
+        // Link Google account to existing user
+        user = emailUsers[0];
+        await this.db
+          .update(usersTable)
+          .set({
+            oauth_provider: googleUser.oauth_provider,
+            oauth_id: googleUser.oauth_id,
+            email_verified: true,
+            profile_image_url:
+              googleUser.profile_image_url || user.profile_image_url,
+            name: user.name || googleUser.name,
+          })
+          .where(eq(usersTable.id, user.id));
+      } else {
+        // Create new user
+        const newUsers = await this.db
+          .insert(usersTable)
+          .values({
+            email: googleUser.email,
+            name: googleUser.name,
+            profile_image_url: googleUser.profile_image_url,
+            oauth_provider: googleUser.oauth_provider,
+            oauth_id: googleUser.oauth_id,
+            role: 'customer',
+            email_verified: true,
+            password: null, // No password for OAuth users
+          })
+          .returning();
+
+        user = newUsers[0];
+      }
+
+      // Fetch the user again to get updated data
+      users = await this.db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, user.id))
+        .limit(1);
+      user = users[0];
+    } else {
+      user = users[0];
+
+      // Update last login
+      await this.db
+        .update(usersTable)
+        .set({ last_login: new Date().toISOString() })
+        .where(eq(usersTable.id, user.id));
+    }
+
+    // Generate tokens
+    const tokens = await this.generateTokenPair(
+      user.id,
+      user.email,
+      user.role,
+    );
+
+    return { user, tokens };
+  }
 }
