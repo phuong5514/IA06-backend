@@ -13,10 +13,14 @@ import { PDFDocument } from 'pdf-lib';
 import { db } from '../db';
 import { tables } from '../db/schema';
 import { QrService } from './qr.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 
 @Injectable()
 export class TablesService {
-  constructor(private readonly qrService: QrService) {}
+  constructor(
+    private readonly qrService: QrService,
+    private readonly systemSettingsService: SystemSettingsService,
+  ) {}
 
   /**
    * Create a new table
@@ -389,10 +393,34 @@ export class TablesService {
         // Load images
         const assetsPath = path.join(process.cwd(), 'src', 'assets');
         const backgroundPath = path.join(assetsPath, 'background.png');
-        const logoPath = path.join(assetsPath, 'logo.png');
-
         const backgroundBuffer = fs.readFileSync(backgroundPath);
-        const logoBuffer = fs.readFileSync(logoPath);
+
+        // Get logo from system settings
+        const branding = await this.systemSettingsService.getBrandingSettings();
+        let logoBuffer: Buffer;
+        
+        if (branding.logoUrl) {
+          try {
+            // Download logo from URL
+            const response = await fetch(branding.logoUrl);
+            if (response.ok) {
+              const arrayBuffer = await response.arrayBuffer();
+              logoBuffer = Buffer.from(arrayBuffer);
+            } else {
+              // Fallback to default logo
+              const logoPath = path.join(assetsPath, 'logo.png');
+              logoBuffer = fs.readFileSync(logoPath);
+            }
+          } catch (error) {
+            // Fallback to default logo if download fails
+            const logoPath = path.join(assetsPath, 'logo.png');
+            logoBuffer = fs.readFileSync(logoPath);
+          }
+        } else {
+          // Use default logo
+          const logoPath = path.join(assetsPath, 'logo.png');
+          logoBuffer = fs.readFileSync(logoPath);
+        }
 
         // Add background image
         doc.image(backgroundBuffer, 0, 0, {
@@ -429,7 +457,7 @@ export class TablesService {
           .fillColor('white')
           .font('Times-Italic')
           .fontSize(24)
-          .text('Smart Restaurant', { align: 'center' });
+          .text(branding.restaurantName || 'Smart Restaurant', { align: 'center' });
         doc
           .fontSize(18)
           .text(`Table ${table.table_number}`, { align: 'center' });

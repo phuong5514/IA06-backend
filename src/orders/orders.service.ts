@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, desc, and, or, sql } from 'drizzle-orm';
@@ -21,12 +23,17 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './dto/update-order-status.dto';
 import { OrdersGateway } from '../websocket/orders.gateway';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 
 @Injectable()
 export class OrdersService {
   private db;
 
-  constructor(private ordersGateway: OrdersGateway) {
+  constructor(
+    private ordersGateway: OrdersGateway,
+    @Inject(forwardRef(() => SystemSettingsService))
+    private systemSettingsService: SystemSettingsService,
+  ) {
     this.db = drizzle(process.env.DATABASE_URL);
   }
 
@@ -140,6 +147,26 @@ export class OrdersService {
             )
             .execute();
         }
+      }
+
+      // Check if auto-accept is enabled
+      try {
+        const workflowSettings = await this.systemSettingsService.getWorkflowSettings();
+        if (workflowSettings.orderAutoAcceptEnabled) {
+          // Auto-accept the order
+          const [updatedOrder] = await this.db
+            .update(orders)
+            .set({ status: 'accepted' })
+            .where(eq(orders.id, order.id))
+            .returning();
+          
+          // Notify about auto-accepted order
+          this.ordersGateway.notifyNewOrder(updatedOrder);
+          return updatedOrder;
+        }
+      } catch (error) {
+        console.error('Error checking auto-accept setting:', error);
+        // Continue with normal flow if settings check fails
       }
 
       // Notify about new order via WebSocket
