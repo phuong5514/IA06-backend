@@ -592,4 +592,71 @@ export class UserService {
       throw new Error('Failed to update user profile');
     }
   }
+
+  // Change password for logged-in user
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ) {
+    try {
+      // Get user with current password
+      const users = await this.db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .execute();
+
+      if (users.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const user = users[0];
+
+      // Verify current password
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return {
+          success: false,
+          message: 'Current password is incorrect',
+        };
+      }
+
+      // Validate new password strength
+      if (newPassword.length < 8) {
+        return {
+          success: false,
+          message: 'New password must be at least 8 characters long',
+        };
+      }
+
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(newPassword)) {
+        return {
+          success: false,
+          message: 'New password must contain uppercase, lowercase, number, and special character',
+        };
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+      // Update password
+      await this.db
+        .update(usersTable)
+        .set({
+          password: hashedPassword,
+          updated_at: new Date().toISOString(),
+        })
+        .where(eq(usersTable.id, userId))
+        .execute();
+
+      return {
+        success: true,
+        message: 'Password changed successfully',
+      };
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw new Error('Failed to change password');
+    }
+  }
 }

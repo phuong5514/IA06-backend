@@ -57,6 +57,16 @@ export class UserController {
     return this.registrationService.resetPassword(body.token, body.password);
   }
 
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Req() req: express.Request,
+    @Body() body: { currentPassword: string; newPassword: string }
+  ) {
+    const userId = (req.user as any).userId;
+    return this.userService.changePassword(userId, body.currentPassword, body.newPassword);
+  }
+
   @Post('login')
   @HttpCode(200)
   async login(
