@@ -16,6 +16,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { SystemStatsModule } from './system-stats/system-stats.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { SystemStatsModule } from './system-stats/system-stats.module';
     AuditLogsModule,
     SystemSettingsModule,
     SystemStatsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [
