@@ -46,4 +46,16 @@ export class GcsService {
     const file = bucket.file(fileName);
     await file.delete();
   }
+
+  getBucket() {
+    return this.storage.bucket(this.bucketName);
+  }
+
+  getStorage() {
+    return this.storage;
+  }
+
+  getBucketName(): string {
+    return this.bucketName;
+  }
 }

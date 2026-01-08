@@ -19,11 +19,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.guard';
 import * as schema from '../db/schema';
+import { GcsService } from '../menu/gcs.service';
+import * as path from 'path';
+import sharp from 'sharp';
 
 @Controller('system-settings')
 export class SystemSettingsController {
   constructor(
     private readonly systemSettingsService: SystemSettingsService,
+    private readonly gcsService: GcsService,
   ) {}
 
   /**
@@ -146,5 +150,94 @@ export class SystemSettingsController {
   async deleteSetting(@Param('key') key: string) {
     await this.systemSettingsService.deleteSetting(key);
     return { message: 'Setting deleted successfully' };
+  }
+
+  /**
+   * Generate signed URL for logo upload (super admin only)
+   */
+  @Post('logo/upload-url')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  async getLogoUploadUrl(
+    @Body() body: { fileName: string; contentType: string },
+  ) {
+    // Generate unique filename
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    const extension = path.extname(body.fileName);
+    const baseName = `logos/${timestamp}_${random}${extension}`;
+
+    const signedUrl = await this.gcsService.generateSignedUploadUrl(
+      baseName,
+      body.contentType,
+    );
+
+    return {
+      signedUrl,
+      fileName: baseName,
+    };
+  }
+
+  /**
+   * Confirm logo upload and process image (super admin only)
+   */
+  @Post('logo/confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  async confirmLogoUpload(
+    @Body() body: { gcsFileName: string },
+    @Req() req: any,
+  ) {
+    try {
+      // Download image from GCS for processing
+      const bucket = this.gcsService.getBucket();
+      const file = bucket.file(body.gcsFileName);
+      const [buffer] = await file.download();
+
+      // Process image with Sharp
+      const sharpInstance = sharp(buffer);
+
+      // Generate processed filenames
+      const baseName = path.parse(body.gcsFileName).name;
+      const displayName = `logos/${baseName}_display.jpg`;
+
+      // Create display image (500x500, contain)
+      const displayBuffer = await sharpInstance
+        .resize(500, 500, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+
+      // Upload processed image to GCS
+      const displayFile = bucket.file(displayName);
+      await displayFile.save(displayBuffer, {
+        metadata: {
+          contentType: 'image/jpeg',
+        },
+      });
+
+      // Generate public URLs
+      const displayUrl = this.gcsService.getPublicUrl(displayName);
+
+      // Update system setting with new logo URL
+      await this.systemSettingsService.updateSetting({
+        key: 'restaurant_logo_url',
+        value: displayUrl,
+        updatedBy: req.user.userId,
+      });
+
+      // Delete original upload
+      await this.gcsService.deleteFile(body.gcsFileName);
+
+      return {
+        success: true,
+        url: displayUrl,
+        message: 'Logo uploaded and updated successfully',
+      };
+    } catch (error) {
+      throw new Error(`Failed to process logo: ${error.message}`);
+    }
   }
 }
