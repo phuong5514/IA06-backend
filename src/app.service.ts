@@ -521,4 +521,75 @@ export class UserService {
       throw new Error('Failed to set default payment method');
     }
   }
+
+  // Get user profile with full details
+  async getUserProfile(userId: string) {
+    try {
+      const users = await this.db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .execute();
+
+      if (users.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const user = users[0];
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = user;
+
+      return {
+        success: true,
+        user: userWithoutPassword,
+      };
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      throw new Error('Failed to fetch user profile');
+    }
+  }
+
+  // Update user profile (name, phone, profile_image_url)
+  async updateUserProfile(
+    userId: string, 
+    updates: { 
+      name?: string; 
+      phone?: string; 
+      profile_image_url?: string;
+    }
+  ) {
+    try {
+      const updateData: any = {};
+      
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.phone !== undefined) updateData.phone = updates.phone;
+      if (updates.profile_image_url !== undefined) updateData.profile_image_url = updates.profile_image_url;
+      
+      // Add updated timestamp
+      updateData.updated_at = new Date().toISOString();
+
+      const updatedUsers = await this.db
+        .update(usersTable)
+        .set(updateData)
+        .where(eq(usersTable.id, userId))
+        .returning()
+        .execute();
+
+      if (updatedUsers.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const { password, ...userWithoutPassword } = updatedUsers[0];
+
+      return {
+        success: true,
+        message: 'Profile updated successfully',
+        user: userWithoutPassword,
+      };
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw new Error('Failed to update user profile');
+    }
+  }
 }
