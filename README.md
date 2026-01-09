@@ -27,6 +27,59 @@ A NestJS-based backend for the Smart Restaurant QR-based ordering system.
 npm install
 ```
 
+## Quick Start
+
+### Option 1: Automated Setup (Recommended)
+
+Run the setup script for your platform:
+
+**Windows:**
+```bash
+cd scripts
+setup-database.bat
+```
+
+**Linux/Mac:**
+```bash
+cd scripts
+chmod +x setup-database.sh
+./setup-database.sh
+```
+
+The script will guide you through:
+1. Creating tables (schema push)
+2. Seeding initial data (users, menu, tables, etc.)
+
+### Option 2: Manual Setup
+
+1. Configure environment variables in `.env`
+2. Push database schema:
+   ```bash
+   npm run db:push
+   ```
+3. Seed initial data:
+   ```bash
+   npm run db:seed
+   ```
+
+For detailed database setup instructions, see [DATABASE_SETUP.md](./DATABASE_SETUP.md)
+
+## Database Commands
+
+```bash
+npm run db:generate    # Generate migration files
+npm run db:push        # Push schema to database
+npm run db:seed        # Seed comprehensive mock data
+npm run db:reset       # Reset database and reseed
+npm run db:bootstrap   # Create super admin from .env
+```
+
+**Default Login Credentials (after seeding):**
+- Admin: `admin@restaurant.com` / `Password123!`
+- Waiter: `waiter1@restaurant.com` / `Password123!`
+- Kitchen: `kitchen1@restaurant.com` / `Password123!`
+- Customer: `customer1@example.com` / `Password123!`
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` and configure the following variables:
