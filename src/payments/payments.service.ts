@@ -650,7 +650,13 @@ export class PaymentsService {
       })
     );
 
-    return paymentsWithOrders;
+    // Filter out payments where all associated orders are already completed
+    // This handles cases where a payment intent was created but the order was paid via another method
+    return paymentsWithOrders.filter(item => {
+      if (item.orders.length === 0) return false;
+      const allOrdersCompleted = item.orders.every((order: any) => order.status === 'completed' || order.status === 'cancelled');
+      return !allOrdersCompleted;
+    });
   }
 
   /**
