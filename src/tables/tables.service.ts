@@ -362,7 +362,7 @@ export class TablesService {
    */
   async generateQrCodeImage(qrToken: string): Promise<string> {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const menuUrl = `${baseUrl}/menu?qr=${qrToken}`;
+    const menuUrl = `${baseUrl}/qr/${qrToken}`;
 
     return QRCode.toDataURL(menuUrl, {
       width: 300,
@@ -478,7 +478,7 @@ export class TablesService {
         // Generate QR code
         const qrToken = table.qr_token;
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        const menuUrl = `${baseUrl}/menu?qr=${qrToken}`;
+        const menuUrl = `${baseUrl}/qr/${qrToken}`;
 
         const qrDataUrl = await QRCode.toDataURL(menuUrl, {
           width: 200,

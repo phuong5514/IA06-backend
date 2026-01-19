@@ -14,7 +14,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
-    return { userId: payload.sub, email: payload.email, role: payload.role };
+  async validate(payload: any) {
+    // Support both 'sub' (standard JWT) and 'userId' (guest tokens)
+    const userId = payload.sub || payload.userId;
+    
+    return { 
+      userId, 
+      email: payload.email, 
+      role: payload.role,
+      sessionId: payload.sessionId, // Preserve for guest sessions
+      isGuest: payload.isGuest, // Preserve guest flag
+      tableId: payload.tableId, // Preserve table context
+    };
   }
 }
