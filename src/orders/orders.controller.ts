@@ -41,7 +41,8 @@ export class OrdersController {
   @Get()
   async findAll(@Request() req) {
     const userId = req.user.userId;
-    return this.ordersService.findAll(userId);
+    const sessionId = req.user.sessionId; // Extract sessionId from JWT if present
+    return this.ordersService.findAll(userId, sessionId);
   }
 
   /**

@@ -6,6 +6,8 @@ import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
 import { AuthController } from './auth.controller';
 import { RegistrationService } from './registration.service';
+import { GuestSessionService } from './guest-session.service';
+import { GuestSessionController } from './guest-session.controller';
 import { UserService } from '../app.service';
 import 'dotenv/config';
 
@@ -64,8 +66,21 @@ const JWT_ACCESS_SECRET =
       signOptions: { expiresIn: '15m' },
     }),
   ],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, RegistrationService, UserService],
-  controllers: [AuthController],
-  exports: [AuthService, JwtStrategy, PassportModule, RegistrationService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    RegistrationService,
+    GuestSessionService,
+    UserService,
+  ],
+  controllers: [AuthController, GuestSessionController],
+  exports: [
+    AuthService,
+    JwtStrategy,
+    PassportModule,
+    RegistrationService,
+    GuestSessionService,
+  ],
 })
 export class AuthModule {}

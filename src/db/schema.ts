@@ -31,6 +31,7 @@ export const users = pgTable('users', {
   stripe_customer_id: varchar('stripe_customer_id', { length: 255 }),
   oauth_provider: varchar('oauth_provider', { length: 50 }),
   oauth_id: varchar('oauth_id', { length: 255 }),
+  is_guest: boolean('is_guest').default(false).notNull(),
   is_active: boolean('is_active').default(true).notNull(),
   email_verified: boolean('email_verified').default(false).notNull(),
   last_login: timestamp('last_login', { mode: 'string' }),
@@ -266,6 +267,7 @@ export const orders = pgTable('orders', {
     .references(() => users.id, { onDelete: 'restrict' }),
   table_id: integer('table_id')
     .references(() => tables.id, { onDelete: 'set null' }),
+  session_id: varchar('session_id', { length: 255 }),
   status: orderStatusEnum('status').notNull().default('pending'),
   total_amount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
   special_instructions: text('special_instructions'),

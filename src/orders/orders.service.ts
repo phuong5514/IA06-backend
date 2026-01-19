@@ -114,6 +114,7 @@ export class OrdersService {
         .values({
           user_id: userId,
           table_id: createOrderDto.table_id || null,
+          session_id: createOrderDto.session_id || null,
           status: 'pending',
           total_amount: totalAmount,
         })
@@ -179,11 +180,26 @@ export class OrdersService {
     }
   }
 
-  async findAll(userId: string): Promise<any> {
-    const userOrders = await this.db
+  async findAll(userId: string, sessionId?: string): Promise<any> {
+    let query = this.db
       .select()
       .from(orders)
-      .where(eq(orders.user_id, userId))
+      .where(eq(orders.user_id, userId));
+
+    // If sessionId is provided (for guest users), filter by session
+    if (sessionId) {
+      query = this.db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.user_id, userId),
+            eq(orders.session_id, sessionId),
+          ),
+        );
+    }
+
+    const userOrders = await query
       .orderBy(desc(orders.created_at))
       .execute();
 
