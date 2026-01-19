@@ -116,21 +116,30 @@ export class SystemSettingsService {
   async bulkUpdateSettings(dto: BulkUpdateSettingsDto) {
     const keys = dto.settings.map((s) => s.key);
 
-    // Verify all keys exist
+    // Get existing settings
     const existing = await db
       .select()
       .from(schema.systemSettings)
       .where(inArray(schema.systemSettings.key, keys));
 
-    if (existing.length !== keys.length) {
-      const existingKeys = existing.map((s) => s.key);
-      const missingKeys = keys.filter((k) => !existingKeys.includes(k));
-      throw new BadRequestException(
-        `Settings not found: ${missingKeys.join(', ')}`,
-      );
+    const existingKeys = existing.map((s) => s.key);
+    const missingKeys = keys.filter((k) => !existingKeys.includes(k));
+
+    // Create missing settings with default values
+    if (missingKeys.length > 0) {
+      const newSettings = missingKeys.map((key) => ({
+        key,
+        value: '',
+        description: `Auto-created setting: ${key}`,
+        category: 'general',
+        is_public: true,
+        updated_by: dto.updatedBy,
+      }));
+
+      await db.insert(schema.systemSettings).values(newSettings);
     }
 
-    // Update each setting
+    // Update all settings
     const results = await Promise.all(
       dto.settings.map((setting) =>
         this.updateSetting({
