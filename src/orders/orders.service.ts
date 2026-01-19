@@ -6,7 +6,6 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, desc, and, or, sql } from 'drizzle-orm';
 import {
   orders,
@@ -24,6 +23,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './dto/update-order-status.dto';
 import { OrdersGateway } from '../websocket/orders.gateway';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class OrdersService {
@@ -34,10 +34,10 @@ export class OrdersService {
     @Inject(forwardRef(() => SystemSettingsService))
     private systemSettingsService: SystemSettingsService,
   ) {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
-  async create(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
+  async create(userId: string | null, createOrderDto: CreateOrderDto): Promise<Order> {
     try {
       // Validate all menu items exist and calculate prices
       const itemsWithPrices = await Promise.all(
@@ -112,7 +112,7 @@ export class OrdersService {
       const [order] = await this.db
         .insert(orders)
         .values({
-          user_id: userId,
+          user_id: userId || null, // Allow null for guest orders
           table_id: createOrderDto.table_id || null,
           session_id: createOrderDto.session_id || null,
           status: 'pending',
@@ -374,7 +374,7 @@ export class OrdersService {
         table: tables,
       })
       .from(orders)
-      .innerJoin(users, eq(orders.user_id, users.id))
+      .leftJoin(users, eq(orders.user_id, users.id)) // Changed to leftJoin to include guest orders
       .leftJoin(tables, eq(orders.table_id, tables.id))
       .orderBy(desc(orders.created_at));
 

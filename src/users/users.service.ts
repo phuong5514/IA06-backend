@@ -5,11 +5,11 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import { users } from '../db/schema';
 import { CreateStaffDto, UpdateStaffDto } from './dto/create-staff.dto';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class UsersService {
@@ -17,7 +17,7 @@ export class UsersService {
   private db;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   async createStaff(createStaffDto: CreateStaffDto, currentUserRole: string) {

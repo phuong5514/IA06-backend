@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema';
 import { eq, and, sql, gte, isNull } from 'drizzle-orm';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class SystemStatsService {
   private db;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   /**

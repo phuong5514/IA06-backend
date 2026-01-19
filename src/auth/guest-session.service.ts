@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, or, inArray, isNotNull, sql } from 'drizzle-orm';
 import { users, orders, tables } from '../db/schema';
 import { randomBytes } from 'crypto';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class GuestSessionService {
   private db;
 
   constructor(private jwtService: JwtService) {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   /**
@@ -185,12 +185,15 @@ export class GuestSessionService {
       if (!order.sessionId) continue;
       
       if (!sessionsMap.has(order.sessionId)) {
-        // Fetch user details
-        const [user] = await this.db
-          .select()
-          .from(users)
-          .where(eq(users.id, order.userId))
-          .limit(1);
+        // Fetch user details only if userId exists
+        let user = null;
+        if (order.userId) {
+          [user] = await this.db
+            .select()
+            .from(users)
+            .where(eq(users.id, order.userId))
+            .limit(1);
+        }
 
         // Fetch table details if table_id exists
         let tableNumber = 'N/A';
@@ -211,8 +214,8 @@ export class GuestSessionService {
           tableId: order.tableId,
           tableNumber,
           userId: order.userId,
-          userName: user?.name || user?.email || 'Unknown',
-          isGuest: user?.is_guest || false,
+          userName: order.userId ? (user?.name || user?.email || 'Unknown') : 'Guest',
+          isGuest: order.userId ? (user?.is_guest || false) : true,
           startedAt: order.createdAt,
           incompleteOrderCount: 0,
           totalOrderValue: '0',

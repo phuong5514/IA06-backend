@@ -4,7 +4,6 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, inArray } from 'drizzle-orm';
 import {
   payments,
@@ -20,6 +19,7 @@ import {
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ProcessCashPaymentDto } from './dto/process-cash-payment.dto';
 import Stripe from 'stripe';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class PaymentsService {
@@ -28,7 +28,7 @@ export class PaymentsService {
   private stripe: Stripe;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
     
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) {

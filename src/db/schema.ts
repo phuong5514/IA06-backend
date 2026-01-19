@@ -263,8 +263,7 @@ export const orderStatusEnum = pgEnum('order_status', [
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   user_id: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'restrict' }),
+    .references(() => users.id, { onDelete: 'restrict' }), // Made nullable for guest orders
   table_id: integer('table_id')
     .references(() => tables.id, { onDelete: 'set null' }),
   session_id: varchar('session_id', { length: 255 }),
