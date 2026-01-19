@@ -4,7 +4,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, isNull, or } from 'drizzle-orm';
 import {
   payments,
   paymentOrders,
@@ -51,12 +51,12 @@ export class PaymentsService {
     
     // Determine filter based on sessionId or userId
     let whereConditions;
-    if (sessionId) {
+    if (sessionId && sessionId.trim() !== '') {
       whereConditions = and(
         eq(orders.session_id, sessionId),
         eq(orders.status, 'served')
       );
-    } else if (userId) {
+    } else if (userId && userId.trim() !== '') {
       whereConditions = and(
         eq(orders.user_id, userId),
         eq(orders.status, 'served')
@@ -155,13 +155,13 @@ export class PaymentsService {
 
       // Determine filter based on sessionId or userId
       let whereConditions;
-      if (sessionId) {
+      if (sessionId && sessionId.trim() !== '') {
         whereConditions = and(
           inArray(orders.id, orderIds),
           eq(orders.session_id, sessionId),
           eq(orders.status, 'served')
         );
-      } else if (userId) {
+      } else if (userId && userId.trim() !== '') {
         whereConditions = and(
           inArray(orders.id, orderIds),
           eq(orders.user_id, userId),
@@ -257,14 +257,19 @@ export class PaymentsService {
   /**
    * Create Stripe payment intent for online payment
    */
-  async createStripePaymentIntent(userId: string, paymentId: number) {
+  async createStripePaymentIntent(userId: string | undefined, paymentId: number) {
+    // Build query condition - for guest users (userId is undefined/null), match payments with null user_id
+    const userCondition = userId 
+      ? eq(payments.user_id, userId)
+      : isNull(payments.user_id);
+
     const [payment] = await this.db
       .select()
       .from(payments)
       .where(
         and(
           eq(payments.id, paymentId),
-          eq(payments.user_id, userId)
+          userCondition
         )
       )
       .execute();
@@ -287,7 +292,7 @@ export class PaymentsService {
       currency: 'usd',
       metadata: {
         paymentId: payment.id.toString(),
-        userId: userId,
+        userId: userId || 'guest',
       },
     });
 

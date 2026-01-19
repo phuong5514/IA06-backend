@@ -29,10 +29,12 @@ export class PaymentsController {
    */
   @Get('billing')
   @UseGuards(OptionalJwtAuthGuard)
-  async getBillingInfo(@Request() req, @Query('sessionId') sessionId: string) {
+  async getBillingInfo(@Request() req, @Query('sessionId') sessionId?: string) {
     this.logger.log(`getBillingInfo called - sessionId: ${sessionId}, userId: ${req.user?.userId}`);
     const userId = req.user?.userId;
-    return this.paymentsService.getBillingInfo(sessionId, userId);
+    // Pass undefined if sessionId is empty string or undefined
+    const validSessionId = sessionId && sessionId.trim() !== '' ? sessionId : undefined;
+    return this.paymentsService.getBillingInfo(validSessionId, userId);
   }
 
   /**
