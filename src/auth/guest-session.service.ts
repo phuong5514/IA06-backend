@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq, and } from 'drizzle-orm';
-import { users, orders } from '../db/schema';
+import { eq, and, or, inArray, isNotNull, sql } from 'drizzle-orm';
+import { users, orders, tables } from '../db/schema';
 import { randomBytes } from 'crypto';
 
 @Injectable()
@@ -118,6 +118,150 @@ export class GuestSessionService {
       .where(eq(users.id, guestUserId));
 
     return { ordersTransferred: result.length };
+  }
+
+  /**
+   * End a session and cancel all incomplete orders
+   * @param sessionId - The session ID to end
+   * @param tableId - Optional table ID for additional validation
+   * @returns Number of orders cancelled
+   */
+  async endSession(
+    sessionId: string,
+    tableId?: number,
+  ): Promise<{ ordersCancelled: number }> {
+    // Find all incomplete orders for this session
+    // Incomplete orders are: pending, accepted, preparing, ready, served
+    const incompleteStatuses = ['pending', 'accepted', 'preparing', 'ready', 'served'] as const;
+    
+    const conditions = [
+      eq(orders.session_id, sessionId),
+      inArray(orders.status, incompleteStatuses),
+    ];
+
+    // Update all incomplete orders to cancelled
+    const result = await this.db
+      .update(orders)
+      .set({
+        status: 'cancelled',
+        updated_at: new Date().toISOString(),
+      })
+      .where(and(...conditions))
+      .returning({ id: orders.id });
+
+    return { ordersCancelled: result.length };
+  }
+
+  /**
+   * Get all active sessions with their details
+   * @returns Array of active sessions with user, table, and order information
+   */
+  async getActiveSessions() {
+    // Find all orders with session_id that are not completed or cancelled
+    const incompleteStatuses = ['pending', 'accepted', 'preparing', 'ready', 'served'] as const;
+    
+    const activeOrders = await this.db
+      .select({
+        sessionId: orders.session_id,
+        tableId: orders.table_id,
+        userId: orders.user_id,
+        status: orders.status,
+        totalAmount: orders.total_amount,
+        createdAt: orders.created_at,
+      })
+      .from(orders)
+      .where(
+        and(
+          isNotNull(orders.session_id),
+          inArray(orders.status, incompleteStatuses),
+        ),
+      )
+      .execute();
+
+    // Group orders by session
+    const sessionsMap = new Map();
+    
+    for (const order of activeOrders) {
+      if (!order.sessionId) continue;
+      
+      if (!sessionsMap.has(order.sessionId)) {
+        // Fetch user details
+        const [user] = await this.db
+          .select()
+          .from(users)
+          .where(eq(users.id, order.userId))
+          .limit(1);
+
+        // Fetch table details if table_id exists
+        let tableNumber = 'N/A';
+        if (order.tableId) {
+          const [table] = await this.db
+            .select()
+            .from(tables)
+            .where(eq(tables.id, order.tableId))
+            .limit(1);
+          
+          if (table) {
+            tableNumber = table.table_number;
+          }
+        }
+
+        sessionsMap.set(order.sessionId, {
+          sessionId: order.sessionId,
+          tableId: order.tableId,
+          tableNumber,
+          userId: order.userId,
+          userName: user?.name || user?.email || 'Unknown',
+          isGuest: user?.is_guest || false,
+          startedAt: order.createdAt,
+          incompleteOrderCount: 0,
+          totalOrderValue: '0',
+        });
+      }
+
+      // Update session stats
+      const session = sessionsMap.get(order.sessionId);
+      session.incompleteOrderCount += 1;
+      session.totalOrderValue = (
+        parseFloat(session.totalOrderValue) + parseFloat(order.totalAmount)
+      ).toFixed(2);
+      
+      // Update startedAt to earliest order
+      if (new Date(order.createdAt) < new Date(session.startedAt)) {
+        session.startedAt = order.createdAt;
+      }
+    }
+
+    return Array.from(sessionsMap.values());
+  }
+
+  /**
+   * Delete a guest user account
+   * @param userId - The user ID to delete
+   * @returns Success status
+   */
+  async deleteGuestUser(userId: string): Promise<{ success: boolean }> {
+    try {
+      // Verify this is actually a guest user before deleting
+      const [user] = await this.db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, userId), eq(users.is_guest, true)))
+        .limit(1);
+
+      if (!user) {
+        // Not a guest user or doesn't exist
+        return { success: false };
+      }
+
+      // Delete the guest user
+      await this.db.delete(users).where(eq(users.id, userId));
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting guest user:', error);
+      return { success: false };
+    }
   }
 
   /**

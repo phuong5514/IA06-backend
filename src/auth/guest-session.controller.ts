@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   UseGuards,
   Request,
@@ -8,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { GuestSessionService } from './guest-session.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard, Roles } from './roles.guard';
 
 @Controller('guest-session')
 export class GuestSessionController {
@@ -71,6 +73,79 @@ export class GuestSessionController {
       success: true,
       message: `Successfully transferred ${result.ordersTransferred} orders`,
       ...result,
+    };
+  }
+
+  /**
+   * End a session and cancel all incomplete orders
+   * POST /api/guest-session/end
+   * Can be called by authenticated users (guests or regular) or waiters
+   */
+  @Post('end')
+  @UseGuards(JwtAuthGuard)
+  async endSession(
+    @Request() req,
+    @Body() body: { sessionId: string; tableId?: number },
+  ) {
+    const { sessionId, tableId } = body;
+
+    if (!sessionId) {
+      throw new BadRequestException('Session ID is required');
+    }
+
+    const result = await this.guestSessionService.endSession(
+      sessionId,
+      tableId,
+    );
+
+    return {
+      success: true,
+      message: `Session ended. ${result.ordersCancelled} incomplete orders cancelled`,
+      ...result,
+    };
+  }
+
+  /**
+   * Get all active sessions
+   * GET /api/guest-session/active-sessions
+   * Requires waiter, admin, or super_admin role
+   */
+  @Get('active-sessions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('waiter', 'admin', 'super_admin')
+  async getActiveSessions() {
+    const sessions = await this.guestSessionService.getActiveSessions();
+
+    return {
+      success: true,
+      sessions,
+    };
+  }
+
+  /**
+   * Delete a guest user account
+   * POST /api/guest-session/delete-guest
+   * Requires authentication
+   */
+  @Post('delete-guest')
+  @UseGuards(JwtAuthGuard)
+  async deleteGuestUser(
+    @Request() req,
+    @Body() body: { userId: string },
+  ) {
+    const { userId } = body;
+
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
+    const result = await this.guestSessionService.deleteGuestUser(userId);
+
+    return {
+      success: result.success,
+      message: result.success
+        ? 'Guest user deleted successfully'
+        : 'Failed to delete guest user',
     };
   }
 }
