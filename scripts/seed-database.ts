@@ -4,6 +4,7 @@ import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as bcrypt from 'bcrypt';
+import { eq } from 'drizzle-orm';
 import {
   users,
   tables,
@@ -43,6 +44,21 @@ async function seedDatabase() {
 
   try {
     console.log('🌱 Starting database seed...\n');
+
+    // Check if database has already been seeded
+    console.log('🔍 Checking if database is already seeded...');
+    const existingAdmin = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@restaurant.com'))
+      .limit(1);
+
+    if (existingAdmin.length > 0) {
+      console.log('⚠️  Database already contains seed data. Skipping to avoid duplicates.');
+      console.log('💡 If you want to re-seed, please clear the database first.\n');
+      return;
+    }
+    console.log('✅ Database is empty, proceeding with seeding...\n');
 
     // 1. Seed Users
     console.log('👥 Seeding users...');
