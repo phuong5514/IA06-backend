@@ -180,7 +180,7 @@ export class OrdersService {
     }
   }
 
-  async findAll(userId: string, sessionId?: string): Promise<any> {
+  async findAll(userId?: string, sessionId?: string): Promise<any> {
     let query = this.db
       .select()
       .from(orders)
@@ -227,11 +227,25 @@ export class OrdersService {
     return { orders: ordersWithCounts };
   }
 
-  async findOne(id: number, userId: string): Promise<any> {
+  async findOne(id: number, userId?: string, sessionId?: string): Promise<any> {
+
+    // Build where clause for user or guest (session)
+    let whereClause = and(eq(orders.id, id));
+    if (userId) {
+      whereClause = and(eq(orders.id, id), eq(orders.user_id, userId));
+      // , eq(orders.user_id, userId)
+    } else if (sessionId) {
+      whereClause = and(eq(orders.id, id), eq(orders.session_id, sessionId));
+    } 
+    // else {
+    //   // No user or session, not allowed
+    //   throw new NotFoundException(`Order with ID ${id} not found`);
+    // }
+
     const [order] = await this.db
       .select()
       .from(orders)
-      .where(and(eq(orders.id, id), eq(orders.user_id, userId)))
+      .where(whereClause)
       .execute();
 
     if (!order) {

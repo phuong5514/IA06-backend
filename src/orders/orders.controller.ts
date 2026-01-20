@@ -18,6 +18,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
+import { OptionalJwtAuthGuard } from 'src/auth/optional-jwt-auth.guard';
 
 // Custom decorator to mark routes as optional auth
 export const OptionalAuth = () => SetMetadata('optionalAuth', true);
@@ -31,6 +32,7 @@ export class OrdersController {
    * POST /api/orders
    */
   @Post()
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   async create(@Request() req, @Body() createOrderDto: CreateOrderDto) {
     // Allow guest orders - userId will be null if not authenticated
@@ -43,10 +45,10 @@ export class OrdersController {
    * GET /api/orders
    */
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   async findAll(@Request() req) {
-    const userId = req.user.userId;
-    const sessionId = req.user.sessionId; // Extract sessionId from JWT if present
+    const userId = req.user?.userId;
+    const sessionId = req.user?.sessionId; // Extract sessionId from JWT if present
     return this.ordersService.findAll(userId, sessionId);
   }
 
@@ -55,10 +57,11 @@ export class OrdersController {
    * GET /api/orders/:id
    */
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
-    const userId = req.user.userId;
-    return this.ordersService.findOne(id, userId);
+    const userId = req.user?.userId;
+    const sessionId = req.user?.sessionId;
+    return this.ordersService.findOne(id, userId, sessionId);
   }
 
   /**
@@ -92,6 +95,7 @@ export class OrdersController {
    * POST /api/orders/:id/cancel
    */
   @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard)
   async cancel(@Param('id', ParseIntPipe) id: number, @Request() req) {
     const userId = req.user.userId;
     return this.ordersService.cancelOrder(id, userId);
