@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import * as QRCode from 'qrcode';
 import PDFKit from 'pdfkit';
 import archiver from 'archiver';
@@ -280,7 +280,7 @@ export class TablesService {
     const menu_url = `${baseUrl}/menu?table=${table.id}`;
 
     // Generate a new session ID for this guest
-    const session_id = uuidv4();
+    const session_id = randomUUID();
 
     return {
       table_id: table.id,
