@@ -3,7 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { eq, and, asc, desc, sql, isNull } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, isNull, like } from 'drizzle-orm';
 import {
   menuItems,
   menuItemImages,
@@ -30,6 +30,7 @@ export class ItemsService {
   async findAll(
     categoryId?: number,
     availableOnly: boolean = true,
+    name?: string,
     sortBy?: string,
     sortOrder?: string,
     page: number = 1,
@@ -46,6 +47,10 @@ export class ItemsService {
 
     if (categoryId) {
       whereConditions.push(eq(menuItems.category_id, categoryId));
+    }
+
+    if (name) {
+      whereConditions.push(like(menuItems.name, `%${name}%`));
     }
 
     // Build order by

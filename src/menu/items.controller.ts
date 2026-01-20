@@ -34,6 +34,7 @@ export class ItemsController {
   async findAll(
     @Query('category_id') categoryId?: string,
     @Query('available_only') availableOnly?: string,
+    @Query('name') name?: string,
     @Query('sort_by') sortBy?: string,
     @Query('sort_order') sortOrder?: string,
     @Query('page') page?: string,
@@ -47,6 +48,7 @@ export class ItemsController {
     const result = await this.itemsService.findAll(
       categoryIdNum,
       availableOnlyBool,
+      name,
       sortBy,
       sortOrder,
       pageNum,
