@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 export interface CreateAuditLogDto {
   userId?: string;
@@ -32,7 +32,7 @@ export class AuditLogsService {
   private db;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   /**

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, inArray, sql, desc } from 'drizzle-orm';
 import {
   usersTable,
@@ -15,6 +14,7 @@ import {
 import { AuthService, TokenPair } from './auth/auth.service';
 import * as bcrypt from 'bcrypt';
 import Stripe from 'stripe';
+import { getDrizzleDb } from './infrastructure/drizzle.provider';
 
 @Injectable()
 export class AppService {
@@ -29,7 +29,7 @@ export class UserService {
   private stripe: Stripe;
 
   constructor(private authService: AuthService) {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
     
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (stripeKey) {

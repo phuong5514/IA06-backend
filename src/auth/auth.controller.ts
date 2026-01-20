@@ -146,7 +146,14 @@ export class AuthController {
   async me(@Req() req: any) {
     return {
       success: true,
-      user: { id: req.user?.sub || req.user?.userId, email: req.user?.email },
+      user: { 
+        id: req.user?.userId, 
+        email: req.user?.email,
+        role: req.user?.role,
+        isGuest: req.user?.isGuest || false,
+        sessionId: req.user?.sessionId,
+        tableId: req.user?.tableId,
+      },
     };
   }
 

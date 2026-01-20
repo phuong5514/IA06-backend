@@ -3,7 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, asc, sql, inArray } from 'drizzle-orm';
 import {
   modifierGroups,
@@ -14,6 +13,7 @@ import {
   NewModifierOption,
 } from '../db/schema';
 import 'dotenv/config';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 type ModifierGroupWithOptions = ModifierGroup & { options: ModifierOption[] };
 
@@ -22,7 +22,7 @@ export class ModifiersService {
   private db;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   // Modifier Groups

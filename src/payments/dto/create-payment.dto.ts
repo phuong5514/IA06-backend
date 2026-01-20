@@ -20,4 +20,8 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
 }

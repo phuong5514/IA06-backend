@@ -4,8 +4,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, isNull, or } from 'drizzle-orm';
 import {
   payments,
   paymentOrders,
@@ -20,6 +19,7 @@ import {
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ProcessCashPaymentDto } from './dto/process-cash-payment.dto';
 import Stripe from 'stripe';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class PaymentsService {
@@ -28,7 +28,7 @@ export class PaymentsService {
   private stripe: Stripe;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
     
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) {
@@ -46,8 +46,27 @@ export class PaymentsService {
    * Get billing information for a customer
    * Aggregates all delivered orders (status: 'served') that haven't been paid
    */
-  async getBillingInfo(userId: string) {
-    // Get all served orders for this user that haven't been paid yet
+  async getBillingInfo(sessionId?: string, userId?: string) {
+    this.logger.log(`Getting billing info - sessionId: ${sessionId}, userId: ${userId}`);
+    
+    // Determine filter based on sessionId or userId
+    let whereConditions;
+    if (sessionId && sessionId.trim() !== '') {
+      whereConditions = and(
+        eq(orders.session_id, sessionId),
+        eq(orders.status, 'served')
+      );
+    } else if (userId && userId.trim() !== '') {
+      whereConditions = and(
+        eq(orders.user_id, userId),
+        eq(orders.status, 'served')
+      );
+    } else {
+      this.logger.warn('Neither sessionId nor userId provided');
+      throw new BadRequestException('Either sessionId or userId must be provided');
+    }
+
+    // Get all served orders for this session/user that haven't been paid yet
     const servedOrders = await this.db
       .select({
         order: orders,
@@ -57,12 +76,7 @@ export class PaymentsService {
       .from(orders)
       .leftJoin(orderItems, eq(orders.id, orderItems.order_id))
       .leftJoin(menuItems, eq(orderItems.menu_item_id, menuItems.id))
-      .where(
-        and(
-          eq(orders.user_id, userId),
-          eq(orders.status, 'served')
-        )
-      )
+      .where(whereConditions)
       .execute();
 
     // Check which orders have already been paid
@@ -133,23 +147,35 @@ export class PaymentsService {
   /**
    * Create a payment (initiate payment process)
    */
-  async createPayment(userId: string, createPaymentDto: CreatePaymentDto) {
+  async createPayment(sessionId: string | undefined, userId: string | undefined, createPaymentDto: CreatePaymentDto) {
     try {
       const { orderIds, paymentMethod, notes } = createPaymentDto;
 
-      this.logger.log(`Creating payment for user ${userId}, orders: ${orderIds}, method: ${paymentMethod}`);
+      this.logger.log(`Creating payment for session ${sessionId} or user ${userId}, orders: ${orderIds}, method: ${paymentMethod}`);
 
-      // Validate all orders exist and belong to the user
+      // Determine filter based on sessionId or userId
+      let whereConditions;
+      if (sessionId && sessionId.trim() !== '') {
+        whereConditions = and(
+          inArray(orders.id, orderIds),
+          eq(orders.session_id, sessionId),
+          eq(orders.status, 'served')
+        );
+      } else if (userId && userId.trim() !== '') {
+        whereConditions = and(
+          inArray(orders.id, orderIds),
+          eq(orders.user_id, userId),
+          eq(orders.status, 'served')
+        );
+      } else {
+        throw new BadRequestException('Either sessionId or userId must be provided');
+      }
+
+      // Validate all orders exist and belong to the session/user
       const ordersToProcess = await this.db
         .select()
         .from(orders)
-        .where(
-          and(
-            inArray(orders.id, orderIds),
-            eq(orders.user_id, userId),
-            eq(orders.status, 'served')
-          )
-        )
+        .where(whereConditions)
         .execute();
 
       if (ordersToProcess.length !== orderIds.length) {
@@ -194,7 +220,7 @@ export class PaymentsService {
       const [payment] = await this.db
         .insert(payments)
         .values({
-          user_id: userId,
+          user_id: userId || null,
           table_id: tableId,
           total_amount: totalAmount.toFixed(2),
           payment_method: paymentMethod,
@@ -231,14 +257,19 @@ export class PaymentsService {
   /**
    * Create Stripe payment intent for online payment
    */
-  async createStripePaymentIntent(userId: string, paymentId: number) {
+  async createStripePaymentIntent(userId: string | undefined, paymentId: number) {
+    // Build query condition - for guest users (userId is undefined/null), match payments with null user_id
+    const userCondition = userId 
+      ? eq(payments.user_id, userId)
+      : isNull(payments.user_id);
+
     const [payment] = await this.db
       .select()
       .from(payments)
       .where(
         and(
           eq(payments.id, paymentId),
-          eq(payments.user_id, userId)
+          userCondition
         )
       )
       .execute();
@@ -261,7 +292,7 @@ export class PaymentsService {
       currency: 'usd',
       metadata: {
         paymentId: payment.id.toString(),
-        userId: userId,
+        userId: userId || 'guest',
       },
     });
 
@@ -619,7 +650,13 @@ export class PaymentsService {
       })
     );
 
-    return paymentsWithOrders;
+    // Filter out payments where all associated orders are already completed
+    // This handles cases where a payment intent was created but the order was paid via another method
+    return paymentsWithOrders.filter(item => {
+      if (item.orders.length === 0) return false;
+      const allOrdersCompleted = item.orders.every((order: any) => order.status === 'completed' || order.status === 'cancelled');
+      return !allOrdersCompleted;
+    });
   }
 
   /**

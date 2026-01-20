@@ -3,7 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and, asc, desc, sql, isNull } from 'drizzle-orm';
 import {
   menuItems,
@@ -13,6 +12,7 @@ import {
   MenuItemImage,
 } from '../db/schema';
 import { ModifiersService } from './modifiers.service';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 type NewMenuItemImageInput = Omit<
   MenuItemImage,
@@ -24,7 +24,7 @@ export class ItemsService {
   private db;
 
   constructor(private readonly modifiersService: ModifiersService) {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   async findAll(

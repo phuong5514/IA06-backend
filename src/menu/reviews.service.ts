@@ -1,15 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { eq, desc, asc, and, sql, count } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { menuItemReviews, users, menuItems } from '../db/schema';
 import { CreateReviewDto, AdminRespondToReviewDto, GetReviewsQueryDto } from './dto/review.dto';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class ReviewsService {
   private db;
 
   constructor() {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   async createReview(userId: string, createReviewDto: CreateReviewDto) {

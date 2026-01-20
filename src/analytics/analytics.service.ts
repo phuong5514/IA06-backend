@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql, and, gte, lte, eq, desc } from 'drizzle-orm';
 import {
   orders,
@@ -7,17 +6,14 @@ import {
   menuItems,
   tables,
 } from '../db/schema';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 
 @Injectable()
 export class AnalyticsService {
   private db;
 
   constructor() {
-    const dbUrl = process.env.DATABASE_URL;
-    if (!dbUrl) {
-      throw new Error('DATABASE_URL environment variable is required');
-    }
-    this.db = drizzle(dbUrl);
+    this.db = getDrizzleDb();
   }
 
   /**

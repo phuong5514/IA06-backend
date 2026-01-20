@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  SetMetadata,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -18,19 +19,22 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 
+// Custom decorator to mark routes as optional auth
+export const OptionalAuth = () => SetMetadata('optionalAuth', true);
+
 @Controller('orders')
-@UseGuards(JwtAuthGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   /**
-   * Create a new order
+   * Create a new order (guest or authenticated)
    * POST /api/orders
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Request() req, @Body() createOrderDto: CreateOrderDto) {
-    const userId = req.user.userId;
+    // Allow guest orders - userId will be null if not authenticated
+    const userId = req.user?.userId || null;
     return this.ordersService.create(userId, createOrderDto);
   }
 
@@ -39,9 +43,11 @@ export class OrdersController {
    * GET /api/orders
    */
   @Get()
+  @UseGuards(JwtAuthGuard)
   async findAll(@Request() req) {
     const userId = req.user.userId;
-    return this.ordersService.findAll(userId);
+    const sessionId = req.user.sessionId; // Extract sessionId from JWT if present
+    return this.ordersService.findAll(userId, sessionId);
   }
 
   /**
@@ -49,6 +55,7 @@ export class OrdersController {
    * GET /api/orders/:id
    */
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
     const userId = req.user.userId;
     return this.ordersService.findOne(id, userId);
@@ -59,6 +66,7 @@ export class OrdersController {
    * PATCH /api/orders/:id/status
    */
   @Patch(':id/status')
+  @UseGuards(JwtAuthGuard)
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateOrderStatusDto: UpdateOrderStatusDto,
@@ -94,7 +102,7 @@ export class OrdersController {
    * GET /api/orders/waiter/all
    */
   @Get('waiter/all')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('waiter', 'admin', 'super_admin')
   async getAllOrdersForWaiter(
     @Query('status') status?: string,
@@ -107,7 +115,7 @@ export class OrdersController {
    * GET /api/orders/kitchen/all
    */
   @Get('kitchen/all')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('kitchen', 'admin', 'super_admin')
   async getAllOrdersForKitchen(
     @Query('status') status?: string,
@@ -120,7 +128,7 @@ export class OrdersController {
    * POST /api/orders/:id/accept
    */
   @Post(':id/accept')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('waiter', 'admin', 'super_admin')
   async acceptOrder(
     @Param('id', ParseIntPipe) id: number,

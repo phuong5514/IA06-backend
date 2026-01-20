@@ -40,4 +40,8 @@ export class CreateOrderDto {
   @IsOptional()
   @IsInt()
   table_id?: number;
+
+  @IsOptional()
+  @IsString()
+  session_id?: string;
 }

@@ -28,7 +28,6 @@ export const paymentMethodEnum = pgEnum('payment_method', [
 export const payments = pgTable('payments', {
   id: serial('id').primaryKey(),
   user_id: uuid('user_id')
-    .notNull()
     .references(() => users.id, { onDelete: 'restrict' }),
   table_id: integer('table_id').references(() => tables.id, {
     onDelete: 'set null',

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, and } from 'drizzle-orm';
 import { refreshTokensTable, usersTable } from '../db/schema';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { getDrizzleDb } from '../infrastructure/drizzle.provider';
 import 'dotenv/config';
 
 export interface JwtPayload {
@@ -24,7 +24,7 @@ export class AuthService {
   private db;
 
   constructor(private jwtService: JwtService) {
-    this.db = drizzle(process.env.DATABASE_URL);
+    this.db = getDrizzleDb();
   }
 
   async generateTokenPair(
