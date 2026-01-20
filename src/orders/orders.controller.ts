@@ -142,7 +142,7 @@ export class OrdersController {
    * POST /api/orders/:id/reject
    */
   @Post(':id/reject')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('waiter', 'admin', 'super_admin')
   async rejectOrder(
     @Param('id', ParseIntPipe) id: number,
