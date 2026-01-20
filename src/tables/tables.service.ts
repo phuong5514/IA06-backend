@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
 import * as QRCode from 'qrcode';
 import PDFKit from 'pdfkit';
 import archiver from 'archiver';
@@ -221,6 +222,7 @@ export class TablesService {
     table_id: number;
     table_number: string;
     menu_url: string;
+    session_id: string;
   }> {
     let table = null;
     
@@ -277,10 +279,14 @@ export class TablesService {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const menu_url = `${baseUrl}/menu?table=${table.id}`;
 
+    // Generate a new session ID for this guest
+    const session_id = uuidv4();
+
     return {
       table_id: table.id,
       table_number: table.table_number,
       menu_url,
+      session_id,
     };
   }
 
